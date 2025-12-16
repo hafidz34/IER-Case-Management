@@ -109,6 +109,10 @@ body {
   width: var(--sidebar-open);
 }
 
+.app-sidebar:hover {
+  width: var(--sidebar-open);
+}
+
 .app-sidebar__nav {
   display: flex;
   flex-direction: column;
@@ -135,6 +139,14 @@ body {
 
 /* ===== OPEN MODE ===== */
 .app-sidebar.is-open .app-sidebar__link {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.app-sidebar:hover .app-sidebar__link {
   height: 52px;
   display: flex;
   align-items: center;
@@ -179,6 +191,10 @@ body {
 }
 
 .app-sidebar.is-open .nav-text {
+  display: inline;
+}
+
+.app-sidebar:hover .nav-text {
   display: inline;
 }
 
