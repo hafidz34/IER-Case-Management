@@ -1,0 +1,355 @@
+/* ==== GLOBAL FIX (WAJIB) ==== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ==== THEME ==== */
+:root {
+  --spil-red: #b40000;
+  --spil-green: #0b7a3b;
+
+  --bg: #f6f8fb;
+  --card: #ffffff;
+  --text: #101828;
+  --muted: #667085;
+  --border: #e6e6e6;
+
+  --header-h: 56px;
+  --sidebar-collapsed: 72px;
+  --sidebar-open: 260px;
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+/* ====== LAYOUT ROOT ====== */
+.app-root {
+  min-height: 100vh;
+}
+
+/* ====== HEADER ====== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100; /* header harus di atas sidebar */
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.header-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.app-header__title {
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* ====== BODY ====== */
+.app-body {
+  position: relative;
+  min-height: calc(100vh - var(--header-h));
+}
+
+/* Main selalu offset hanya sebesar sidebar collapsed (biar saat open dia overlay, tidak mendorong) */
+.app-main {
+  margin-left: var(--sidebar-collapsed);
+  min-height: calc(100vh - var(--header-h));
+}
+
+.app-content {
+  padding: 16px;
+}
+
+/* ====== SIDEBAR ====== */
+.app-sidebar {
+  position: fixed;
+  top: var(--header-h);
+  left: 0;
+  height: calc(100vh - var(--header-h));
+  width: var(--sidebar-collapsed);
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  z-index: 90; /* dibawah header */
+  padding: 8px; /* kecil biar muat */
+  transition: width 160ms ease;
+  overflow: hidden;
+}
+
+.app-sidebar.is-open {
+  width: var(--sidebar-open);
+}
+
+.app-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+/* link base */
+.app-sidebar__link {
+  text-decoration: none;
+  color: var(--text);
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+/* ===== COLLAPSED MODE (default) ===== */
+.app-sidebar:not(.is-open) .app-sidebar__link {
+  height: 52px;
+  display: grid;
+  place-items: center; /* icon bener-bener di tengah */
+  padding: 0;
+}
+
+/* ===== OPEN MODE ===== */
+.app-sidebar.is-open .app-sidebar__link {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.app-sidebar__link:hover {
+  background: #f2f6f3;
+  border-color: #e7efe9;
+}
+
+.app-sidebar__link.is-active {
+  background: #eaf6ef;
+  border-color: #d5efdf;
+  color: var(--spil-green);
+  font-weight: 800;
+}
+
+/* Icon */
+.nav-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  background: #fff;
+}
+
+/* active icon */
+.app-sidebar__link.is-active .nav-ico {
+  border-color: #cfe9da;
+  color: var(--spil-green);
+}
+
+/* Text hidden when collapsed */
+.nav-text {
+  white-space: nowrap;
+  display: none;
+}
+
+.app-sidebar.is-open .nav-text {
+  display: inline;
+}
+
+/* ====== PAGE HEADER (inside content) ====== */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ====== UI PIECES ====== */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+/* ==== INPUT OUTLINE DIPERJELAS (CUMA INI) ==== */
+.input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid #d0d5dd; /* lebih jelas */
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+}
+
+textarea.input {
+  height: auto;
+  padding: 10px 12px;
+}
+
+.input:focus {
+  border-color: #cfe9da;
+  box-shadow: 0 0 0 3px rgba(11, 122, 59, 0.12);
+}
+
+.btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn--primary {
+  background: var(--spil-green);
+  border-color: var(--spil-green);
+  color: #fff;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.alert {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff4f4;
+  border: 1px solid #ffd2d2;
+  color: #7a0000;
+  font-weight: 700;
+}
+
+.alert--success {
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  color: #067647;
+}
+
+/* ====== TABLE ====== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+  padding: 10px 10px;
+  vertical-align: top;
+}
+
+.table th {
+  font-weight: 900;
+  background: #fafafa;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+}
+
+/* ====== FORM GRID ====== */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.field__label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==== SUBMIT PINDAH KE BAWAH KANAN (CUMA INI) ==== */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+  padding-top: 0;
+}
+
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Kerugian: rata kiri + tidak mepet */
+.table th.col-money,
+.table td.col-money {
+  text-align: left;
+  padding-left: 12px;
+  padding-right: 12px;
+  white-space: nowrap;
+}
