@@ -29,7 +29,7 @@ class Case(db.Model):
     # 1) ID Case per case  -> kita pakai case_code
     case_code = db.Column(db.String(64), unique=True, nullable=False)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
 
     # 2) Divisi Case (dropdown)
     divisi_case_id = db.Column(db.Integer, db.ForeignKey("m_divisi_case.id"), nullable=True)
@@ -75,11 +75,11 @@ class Case(db.Model):
     # 15) Departemen Terlapor
     departemen_terlapor = db.Column(db.String(255), nullable=True)
 
-    # 16) Jenis Karyawan Terlapor (dropdown)
-    jenis_karyawan_terlapor_id = db.Column(
-        db.Integer, db.ForeignKey("m_jenis_karyawan_terlapor.id"), nullable=True
-    )
-    jenis_karyawan_terlapor = db.relationship("JenisKaryawanTerlapor")
+    # 16) Hapus relasi ini dari Case, karena sudah dipindahkan ke CasePerson
+    # jenis_karyawan_terlapor_id = db.Column(
+    #     db.Integer, db.ForeignKey("m_jenis_karyawan_terlapor.id"), nullable=True
+    # )
+    # jenis_karyawan_terlapor = db.relationship("JenisKaryawanTerlapor")
 
     # 17) Keputusan IER
     keputusan_ier = db.Column(db.Text, nullable=True)
@@ -88,7 +88,7 @@ class Case(db.Model):
     keputusan_final = db.Column(db.Text, nullable=True)
 
     # 19) Persentase Beban Karyawan
-    persentase_beban_karyawan = db.Column(db.Numeric(6, 3), nullable=True)
+    persentase_beban_karyawan = db.Column(db.Numeric(6, 2), nullable=True)
 
     # 20) Nominal Beban Karyawan
     nominal_beban_karyawan = db.Column(db.Numeric(18, 2), nullable=True)
@@ -115,3 +115,26 @@ class Case(db.Model):
 
     # 27) HRBP
     hrbp = db.Column(db.String(255), nullable=True)
+
+    # 28) Person DB 
+    persons = db.relationship("CasePerson", back_populates="case", cascade="all, delete-orphan")
+
+class CasePerson(db.Model):
+    __tablename__ = "t_case_person"
+    id = db.Column(db.Integer, primary_key=True)
+    case_id = db.Column(db.Integer, db.ForeignKey("t_case.id", ondelete="CASCADE"), nullable=False)
+    nama = db.Column(db.String(255), nullable=True)
+    lokasi = db.Column(db.String(255), nullable=True)
+    divisi = db.Column(db.String(255), nullable=True)
+    departemen = db.Column(db.String(255), nullable=True)
+    jenis_karyawan_terlapor_id = db.Column(db.Integer, db.ForeignKey("m_jenis_karyawan_terlapor.id"), nullable=True)
+    jenis_karyawan_terlapor = db.relationship("JenisKaryawanTerlapor")
+    keputusan_ier = db.Column(db.Text, nullable=True)
+    keputusan_final = db.Column(db.Text, nullable=True)
+    persentase_beban_karyawan = db.Column(db.Numeric(8,3), nullable=True)
+    nominal_beban_karyawan = db.Column(db.Numeric(18,2), nullable=True)
+    approval_gm_hcca = db.Column(db.Date, nullable=True)
+    approval_gm_fad = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    case = db.relationship("Case", back_populates="persons")

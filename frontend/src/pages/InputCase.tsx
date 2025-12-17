@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { casesApi, CaseCreatePayload } from "../api/cases";
+import { casesApi, CaseCreatePayload, CasePersonPayload } from "../api/cases";
 import { masterApi, MasterItem } from "../api/master";
 import { isValidDateInput, normalizeDateDisplay, normalizeDateForPayload } from "../utils/date";
 
@@ -34,6 +34,18 @@ type Masters = {
   jenisKaryawan: MasterItem[];
   statusProses: MasterItem[];
   statusPengajuan: MasterItem[];
+};
+
+type PersonFormState = {
+  nama: string;
+  lokasi: string;
+  divisi: string;
+  departemen: string;
+  jenis_karyawan_terlap_id: string;
+  keputusan_ier: string;
+  keputusan_final: string;
+  persentase_beban_karyawan: string;
+  nominal_beban_karyawan: string;
 };
 
 function toNumOrNull(v: string): number | null {
@@ -74,18 +86,6 @@ export default function InputCase() {
     kerugian_by_case: "",
 
     kronologi: "",
-    nama_terlapor: "",
-    lokasi_terlapor: "",
-    divisi_terlapor: "",
-    departemen_terlapor: "",
-
-    jenis_karyawan_terlapor_id: "",
-
-    keputusan_ier: "",
-    keputusan_final: "",
-
-    persentase_beban_karyawan: "",
-    nominal_beban_karyawan: "",
 
     approval_gm_hcca: null as Date | null,
     approval_gm_fad: null as Date | null,
@@ -98,6 +98,49 @@ export default function InputCase() {
     hrbp: "",
   });
 
+  const [persons, setPersons] = useState<PersonFormState[]>([
+    {
+      nama: "",
+      lokasi: "",
+      divisi: "",
+      departemen: "",
+      jenis_karyawan_terlap_id: "",
+      keputusan_ier: "",
+      keputusan_final: "",
+      persentase_beban_karyawan: "",
+      nominal_beban_karyawan: "",
+    },
+  ]);
+
+  const addPerson = () => {
+    setPersons([
+      ...persons,
+      {
+        nama: "",
+        lokasi: "",
+        divisi: "",
+        departemen: "",
+        jenis_karyawan_terlap_id: "",
+        keputusan_ier: "",
+        keputusan_final: "",
+        persentase_beban_karyawan: "",
+        nominal_beban_karyawan: "",
+      },
+    ]);
+  };
+
+  const removePerson = (index: number) => {
+    if (persons.length > 1) {
+      setPersons(persons.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePersonChange = (index: number, field: keyof PersonFormState, value: string) => {
+    const newPersons = [...persons];
+    newPersons[index][field] = value;
+    setPersons(newPersons);
+  };
+
   const persentaseBeban = useMemo(() => {
     const kerugian = parseIDR(form.kerugian) ?? 0;
     const byCase = parseIDR(form.kerugian_by_case) ?? 0;
@@ -107,9 +150,10 @@ export default function InputCase() {
   }, [form.kerugian, form.kerugian_by_case]);
 
   useEffect(() => {
-    if (form.nominal_beban_karyawan !== "0") {
-      setForm((p) => ({ ...p, nominal_beban_karyawan: "0" }));
-    }
+    // Hapus logika ini karena nominal_beban_karyawan sekarang ada di setiap orang
+    // if (form.nominal_beban_karyawan !== "0") {
+    //   setForm((p) => ({ ...p, nominal_beban_karyawan: "0" }));
+    // }
   }, []);
 
   const set = (k: keyof typeof form) => (e: any) => {
@@ -169,18 +213,6 @@ export default function InputCase() {
       kerugian_by_case: parseIDR(form.kerugian_by_case),
 
       kronologi: form.kronologi.trim() || null,
-      nama_terlapor: form.nama_terlapor.trim() || null,
-      lokasi_terlapor: form.lokasi_terlapor.trim() || null,
-      divisi_terlapor: form.divisi_terlapor.trim() || null,
-      departemen_terlapor: form.departemen_terlapor.trim() || null,
-
-      jenis_karyawan_terlapor_id: n(form.jenis_karyawan_terlapor_id),
-
-      keputusan_ier: form.keputusan_ier.trim() || null,
-      keputusan_final: form.keputusan_final.trim() || null,
-
-      persentase_beban_karyawan: toNumOrNull(parsePercentage(persentaseBeban)),
-      nominal_beban_karyawan: parseIDR(form.nominal_beban_karyawan),
 
       approval_gm_hcca: formatDateForPayload(form.approval_gm_hcca),
       approval_gm_fad: formatDateForPayload(form.approval_gm_fad),
@@ -191,8 +223,20 @@ export default function InputCase() {
       notes: form.notes.trim() || null,
       cara_mencegah: form.cara_mencegah.trim() || null,
       hrbp: form.hrbp.trim() || null,
+
+      persons: persons.map((p) => ({
+        nama: p.nama.trim() || null,
+        lokasi: p.lokasi.trim() || null,
+        divisi: p.divisi.trim() || null,
+        departemen: p.departemen.trim() || null,
+        jenis_karyawan_terlapor_id: n(p.jenis_karyawan_terlap_id),
+        keputusan_ier: p.keputusan_ier.trim() || null,
+        keputusan_final: p.keputusan_final.trim() || null,
+        persentase_beban_karyawan: toNumOrNull(parsePercentage(p.persentase_beban_karyawan)),
+        nominal_beban_karyawan: parseIDR(p.nominal_beban_karyawan),
+      })),
     };
-  }, [form, persentaseBeban]);
+  }, [form, persentaseBeban, persons]);
 
   async function handleFinalSubmit() {
     setIsConfirming(false);
@@ -223,6 +267,11 @@ export default function InputCase() {
         return;
       }
 
+      if (persons.some((p) => !p.nama.trim())) {
+        setErr("Nama Terlapor wajib diisi untuk setiap orang.");
+        return;
+      }
+
       setLoading(true);
       const res = await casesApi.create(payload);
       setMsg(`✅ Case tersimpan. ID Case: ${res.case_code}`);
@@ -241,18 +290,16 @@ export default function InputCase() {
         kerugian_by_case: "",
 
         kronologi: "",
-        nama_terlapor: "",
-        lokasi_terlapor: "",
-        divisi_terlapor: "",
-        departemen_terlapor: "",
-
-        jenis_karyawan_terlapor_id: "",
-
-        keputusan_ier: "",
-        keputusan_final: "",
-
-        persentase_beban_karyawan: "",
-        nominal_beban_karyawan: "",
+        // Hapus reset untuk field-field ini
+        // nama_terlapor: "",
+        // lokasi_terlapor: "",
+        // divisi_terlapor: "",
+        // departemen_terlapor: "",
+        // jenis_karyawan_terlapor_id: "",
+        // keputusan_ier: "",
+        // keputusan_final: "",
+        // persentase_beban_karyawan: "",
+        // nominal_beban_karyawan: "",
 
         approval_gm_hcca: null,
         approval_gm_fad: null,
@@ -264,6 +311,20 @@ export default function InputCase() {
         cara_mencegah: "",
         hrbp: "",
       });
+
+      setPersons([
+        {
+          nama: "",
+          lokasi: "",
+          divisi: "",
+          departemen: "",
+          jenis_karyawan_terlap_id: "",
+          keputusan_ier: "",
+          keputusan_final: "",
+          persentase_beban_karyawan: "",
+          nominal_beban_karyawan: "",
+        },
+      ]);
     } catch (e: any) {
       setErr(e?.message || "Network Error");
     } finally {
@@ -296,6 +357,11 @@ export default function InputCase() {
       }
       if (!payload.jenis_case_id) {
         setErr("Jenis Case wajib dipilih.");
+        return;
+      }
+
+      if (persons.some((p) => !p.nama.trim())) {
+        setErr("Nama Terlapor wajib diisi untuk setiap orang.");
         return;
       }
 
@@ -391,139 +457,108 @@ export default function InputCase() {
             <textarea className="input" rows={4} value={form.kronologi} onChange={set("kronologi")} />
           </div>
 
-          <div className="field">
-            <div className="field__label">Nama Terlapor</div>
-            <input className="input" value={form.nama_terlapor} onChange={set("nama_terlapor")} />
-          </div>
+          {/* Hapus blok input untuk satu orang terlapor */}
+          {/* <div className="field"> ... </div> */}
 
-          <div className="field">
-            <div className="field__label">Lokasi Terlapor</div>
-            <input className="input" value={form.lokasi_terlapor} onChange={set("lokasi_terlapor")} />
-          </div>
+        </div>
 
-          <div className="field">
-            <div className="field__label">Divisi Terlapor</div>
-            <input className="input" value={form.divisi_terlapor} onChange={set("divisi_terlapor")} />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Departemen Terlapor</div>
-            <input className="input" value={form.departemen_terlapor} onChange={set("departemen_terlapor")} />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Jenis Karyawan Terlapor</div>
-            <select className="input" value={form.jenis_karyawan_terlapor_id} onChange={set("jenis_karyawan_terlapor_id")}>
-              <option value="">-- pilih --</option>
-              {masters.jenisKaryawan.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <div className="field__label">Keputusan IER</div>
-            <textarea className="input" rows={3} value={form.keputusan_ier} onChange={set("keputusan_ier")} />
-          </div>
-
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <div className="field__label">Keputusan Final</div>
-            <textarea className="input" rows={3} value={form.keputusan_final} onChange={set("keputusan_final")} />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Approval GM HC&CA (tanggal)</div>
-            <DatePicker
-              className="input"
-              dateFormat="dd-MM-yyyy"
-              selected={form.approval_gm_hcca}
-              onChange={setDate("approval_gm_hcca")}
-              placeholderText="dd-mm-yyyy"
-            />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Approval GM FAD (tanggal)</div>
-            <DatePicker
-              className="input"
-              dateFormat="dd-MM-yyyy"
-              selected={form.approval_gm_fad}
-              onChange={setDate("approval_gm_fad")}
-              placeholderText="dd-mm-yyyy"
-            />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Status Process</div>
-            <select className="input" value={form.status_proses_id} onChange={set("status_proses_id")}>
-              <option value="">-- pilih --</option>
-              {masters.statusProses.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <div className="field__label">Status Pengajuan</div>
-            <select className="input" value={form.status_pengajuan_id} onChange={set("status_pengajuan_id")}>
-              <option value="">-- pilih --</option>
-              {masters.statusPengajuan.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <div className="field__label">Notes</div>
-            <textarea className="input" rows={3} value={form.notes} onChange={set("notes")} />
-          </div>
-
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <div className="field__label">Cara Mencegah ke depannya</div>
-            <textarea className="input" rows={3} value={form.cara_mencegah} onChange={set("cara_mencegah")} />
-          </div>
-
-          <div className="field">
-            <div className="field__label">HRBP</div>
-            <input className="input" value={form.hrbp} onChange={set("hrbp")} />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Kerugian</div>
-            <input
-              className="input no-spinner"
-              type="text"
-              value={formatToIDR(form.kerugian)}
-              onChange={(e) => setForm((p) => ({ ...p, kerugian: parseIDR(e.target.value)?.toString() || "" }))}
-            />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Kerugian by Case (per individu)</div>
-            <input
-              className="input no-spinner"
-              type="text"
-              value={formatToIDR(form.kerugian_by_case)}
-              onChange={(e) => setForm((p) => ({ ...p, kerugian_by_case: parseIDR(e.target.value)?.toString() || "" }))}
-            />
-          </div>
-
-          <div className="field">
-            <div className="field__label">Persentase Beban Karyawan</div>
-            <input
-              className="input no-spinner"
-              type="text"
-              value={persentaseBeban}
-              readOnly
-            />
-          </div> */}
-
+        {/* UI Dinamis untuk Daftar Orang */}
+        <div style={{ padding: "0 12px" }}>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginTop: 24, marginBottom: 12 }}>
+            Informasi Terlapor
+          </h2>
+          {persons.map((person, index) => (
+            <div key={index} className="panel" style={{ marginBottom: 16, padding: 16, background: "#f9f9f9" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: "1rem" }}>Terlapor #{index + 1}</h3>
+                {persons.length > 1 && (
+                  <button type="button" className="btn btn--danger" onClick={() => removePerson(index)}>
+                    Hapus
+                  </button>
+                )}
+              </div>
+              <div className="form-grid">
+                <div className="field">
+                  <div className="field__label">Nama Terlapor</div>
+                  <input
+                    className="input"
+                    value={person.nama}
+                    onChange={(e) => handlePersonChange(index, "nama", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <div className="field__label">Lokasi Terlapor</div>
+                  <input
+                    className="input"
+                    value={person.lokasi}
+                    onChange={(e) => handlePersonChange(index, "lokasi", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <div className="field__label">Divisi Terlapor</div>
+                  <input
+                    className="input"
+                    value={person.divisi}
+                    onChange={(e) => handlePersonChange(index, "divisi", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <div className="field__label">Departemen Terlapor</div>
+                  <input
+                    className="input"
+                    value={person.departemen}
+                    onChange={(e) => handlePersonChange(index, "departemen", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <div className="field__label">Jenis Karyawan Terlapor</div>
+                  <select
+                    className="input"
+                    value={person.jenis_karyawan_terlap_id}
+                    onChange={(e) => handlePersonChange(index, "jenis_karyawan_terlap_id", e.target.value)}
+                  >
+                    <option value="">-- pilih --</option>
+                    {masters.jenisKaryawan.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <div className="field__label">Nominal Beban Karyawan</div>
+                  <input
+                    className="input"
+                    value={formatToIDR(person.nominal_beban_karyawan)}
+                    onChange={(e) =>
+                      handlePersonChange(index, "nominal_beban_karyawan", parseIDR(e.target.value)?.toString() ?? "")
+                    }
+                  />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <div className="field__label">Keputusan IER</div>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={person.keputusan_ier}
+                    onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)}
+                  />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <div className="field__label">Keputusan Final</div>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={person.keputusan_final}
+                    onChange={(e) => handlePersonChange(index, "keputusan_final", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="btn" onClick={addPerson} style={{ marginTop: 8 }}>
+            + Tambah Terlapor
+          </button>
         </div>
 
         <div className="form-actions">
@@ -607,15 +642,22 @@ export default function InputCase() {
                 </div>
               </div>
 
+              {/* Perbarui modal konfirmasi untuk menampilkan daftar orang */}
               <div className="summary-card">
                 <div className="summary-card__title">Informasi Terlapor</div>
-                <div className="summary-grid">
-                  <div className="k">Nama Terlapor</div>
-                  <div className="v">{form.nama_terlapor || "-"}</div>
-
-                  <div className="k">Jenis Karyawan</div>
-                  <div className="v">{getMasterNameById(masters.jenisKaryawan, form.jenis_karyawan_terlapor_id)}</div>
-                </div>
+                {persons.map((p, i) => (
+                  <div key={i} style={{ borderBottom: "1px solid #eee", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontWeight: "bold", marginBottom: 4 }}>Terlapor #{i + 1}</div>
+                    <div className="summary-grid">
+                      <div className="k">Nama</div>
+                      <div className="v">{p.nama || "-"}</div>
+                      <div className="k">Jenis Karyawan</div>
+                      <div className="v">{getMasterNameById(masters.jenisKaryawan, p.jenis_karyawan_terlap_id)}</div>
+                      <div className="k">Nominal Beban</div>
+                      <div className="v">{formatToIDR(p.nominal_beban_karyawan) || "-"}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* <div className="summary-card">
