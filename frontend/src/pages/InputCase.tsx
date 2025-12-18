@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { casesApi, CaseCreatePayload, CasePersonPayload } from "../api/cases";
+import { casesApi, CaseCreatePayload } from "../api/cases";
 import { masterApi, MasterItem } from "../api/master";
-import { isValidDateInput, normalizeDateDisplay, normalizeDateForPayload } from "../utils/date";
+import { normalizeDateForPayload } from "../utils/date";
 
 function formatToIDR(value: string | number | null): string {
   if (value === null || value === "") return "";
@@ -16,12 +16,6 @@ function parseIDR(value: string): number | null {
   const cleaned = value.replace(/[^\d]/g, "");
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
-}
-
-function formatPercentage(value: string): string {
-  if (value === "") return "";
-  const cleaned = value.replace(/[^\d.]/g, "");
-  return `${cleaned}%`;
 }
 
 function parsePercentage(value: string): string {
@@ -135,10 +129,43 @@ export default function InputCase() {
     }
   };
 
+  // Helper untuk hitung persen
+  const calculatePercent = (nominalStr: string, kerugianStr: string) => {
+    const nominal = parseIDR(nominalStr) || 0;
+    const kerugian = parseIDR(kerugianStr) || 0;
+    
+    if (kerugian > 0 && nominal >= 0) {
+      return ((nominal / kerugian) * 100).toFixed(2) + "%";
+    }
+    return "";
+  };
+
   const handlePersonChange = (index: number, field: keyof PersonFormState, value: string) => {
     const newPersons = [...persons];
     newPersons[index][field] = value;
+
+    // Hitung persentase otomatis jika nominal berubah
+    if (field === "nominal_beban_karyawan") {
+      newPersons[index].persentase_beban_karyawan = calculatePercent(value, form.kerugian);
+    }
+
     setPersons(newPersons);
+  };
+
+  const handleKerugianChange = (e: any) => {
+    const rawVal = e.target.value;
+    const numVal = parseIDR(rawVal);
+    const strVal = numVal !== null ? numVal.toString() : "";
+    
+    setForm((p) => ({ ...p, kerugian: strVal }));
+
+    // Hitung ulang persentase semua orang karena kerugian berubah
+    setPersons((prevPersons) => 
+      prevPersons.map((p) => ({
+        ...p,
+        persentase_beban_karyawan: calculatePercent(p.nominal_beban_karyawan, strVal)
+      }))
+    );
   };
 
   const persentaseBeban = useMemo(() => {
@@ -149,12 +176,7 @@ export default function InputCase() {
     return `${pct.toFixed(0)}%`;
   }, [form.kerugian, form.kerugian_by_case]);
 
-  useEffect(() => {
-    // Hapus logika ini karena nominal_beban_karyawan sekarang ada di setiap orang
-    // if (form.nominal_beban_karyawan !== "0") {
-    //   setForm((p) => ({ ...p, nominal_beban_karyawan: "0" }));
-    // }
-  }, []);
+  useEffect(() => {}, []);
 
   const set = (k: keyof typeof form) => (e: any) => {
     const value = e && e.target ? e.target.value : e;
@@ -257,7 +279,6 @@ export default function InputCase() {
         }
       }
 
-
       if (!payload.divisi_case_id) {
         setErr("Divisi Case wajib dipilih.");
         return;
@@ -290,17 +311,7 @@ export default function InputCase() {
         kerugian_by_case: "",
 
         kronologi: "",
-        // Hapus reset untuk field-field ini
-        // nama_terlapor: "",
-        // lokasi_terlapor: "",
-        // divisi_terlapor: "",
-        // departemen_terlapor: "",
-        // jenis_karyawan_terlapor_id: "",
-        // keputusan_ier: "",
-        // keputusan_final: "",
-        // persentase_beban_karyawan: "",
-        // nominal_beban_karyawan: "",
-
+        
         approval_gm_hcca: null,
         approval_gm_fad: null,
 
@@ -349,7 +360,6 @@ export default function InputCase() {
           return;
         }
       }
-
 
       if (!payload.divisi_case_id) {
         setErr("Divisi Case wajib dipilih.");
@@ -452,13 +462,34 @@ export default function InputCase() {
             />
           </div>
 
+          {/* MENAMBAHKAN INPUT KERUGIAN YANG SEBELUMNYA HILANG */}
+          <div className="field">
+            <div className="field__label">Kerugian (Rp)</div>
+            <input 
+              className="input" 
+              value={formatToIDR(form.kerugian)} 
+              onChange={handleKerugianChange} 
+              placeholder="Rp 0"
+            />
+          </div>
+
+          <div className="field">
+            <div className="field__label">Kerugian by Case (Rp)</div>
+            <input 
+              className="input" 
+              value={formatToIDR(form.kerugian_by_case)} 
+              onChange={(e) => {
+                const val = parseIDR(e.target.value)?.toString() ?? "";
+                setForm(p => ({ ...p, kerugian_by_case: val }));
+              }} 
+              placeholder="Rp 0"
+            />
+          </div>
+
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <div className="field__label">Kronologi</div>
             <textarea className="input" rows={4} value={form.kronologi} onChange={set("kronologi")} />
           </div>
-
-          {/* Hapus blok input untuk satu orang terlapor */}
-          {/* <div className="field"> ... </div> */}
 
         </div>
 
@@ -525,6 +556,7 @@ export default function InputCase() {
                     ))}
                   </select>
                 </div>
+                
                 <div className="field">
                   <div className="field__label">Nominal Beban Karyawan</div>
                   <input
@@ -535,6 +567,19 @@ export default function InputCase() {
                     }
                   />
                 </div>
+
+                {/* INPUT PERSENTASE BARU (READ ONLY) */}
+                <div className="field">
+                  <div className="field__label">Persentase Beban (%)</div>
+                  <input
+                    className="input"
+                    value={person.persentase_beban_karyawan}
+                    readOnly
+                    style={{ backgroundColor: "#e9ecef", cursor: "not-allowed" }}
+                    placeholder="Otomatis..."
+                  />
+                </div>
+
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan IER</div>
                   <textarea
@@ -595,7 +640,6 @@ export default function InputCase() {
           aria-modal="true"
           aria-labelledby="confirm-title"
           onMouseDown={(e) => {
-            // klik backdrop untuk close (tapi jangan kalau klik isi modal)
             if (e.target === e.currentTarget) setIsConfirming(false);
           }}
         >
@@ -642,7 +686,6 @@ export default function InputCase() {
                 </div>
               </div>
 
-              {/* Perbarui modal konfirmasi untuk menampilkan daftar orang */}
               <div className="summary-card">
                 <div className="summary-card__title">Informasi Terlapor</div>
                 {persons.map((p, i) => (
@@ -655,35 +698,12 @@ export default function InputCase() {
                       <div className="v">{getMasterNameById(masters.jenisKaryawan, p.jenis_karyawan_terlap_id)}</div>
                       <div className="k">Nominal Beban</div>
                       <div className="v">{formatToIDR(p.nominal_beban_karyawan) || "-"}</div>
+                      <div className="k">Persentase Beban</div>
+                      <div className="v">{p.persentase_beban_karyawan || "-"}</div>
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* <div className="summary-card">
-                <div className="summary-card__title">Detail Kerugian & Beban</div>
-                <div className="summary-grid">
-                  <div className="k">Kerugian</div>
-                  <div className="v v--money">{formatToIDR(form.kerugian) || "-"}</div>
-
-                  <div className="k">Kerugian by Case</div>
-                  <div className="v v--money">{formatToIDR(form.kerugian_by_case) || "-"}</div>
-
-                  <div className="k">Persentase Beban</div>
-                  <div className="v v--money">{persentaseBeban || "-"}</div>
-                </div>
-              </div>
-
-              <div className="summary-card">
-                <div className="summary-card__title">Status</div>
-                <div className="summary-grid">
-                  <div className="k">Status Proses</div>
-                  <div className="v">{getMasterNameById(masters.statusProses, form.status_proses_id)}</div>
-
-                  <div className="k">Status Pengajuan</div>
-                  <div className="v">{getMasterNameById(masters.statusPengajuan, form.status_pengajuan_id)}</div>
-                </div>
-              </div> */}
             </div>
 
             <div className="modal__footer">
