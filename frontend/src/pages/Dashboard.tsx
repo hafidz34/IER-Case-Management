@@ -469,11 +469,11 @@ export default function Dashboard() {
                     <td className="col-money">{fmtMoney(r.kerugian)}</td>
                     <td>
                       {r.persons && r.persons.length > 0 ? (
-                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        <ul className="terlapor-list">
                           {r.persons.map((p) => (
-                            <li key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              {p.nama}
-                              <button className="btn btn--sm" onClick={() => setEditingPerson(p)}>
+                            <li key={p.id} className="terlapor-item">
+                              <div className="terlapor-name">{p.nama}</div>
+                              <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
                                 Edit Keputusan
                               </button>
                             </li>
@@ -483,12 +483,12 @@ export default function Dashboard() {
                         "-"
                       )}
                     </td>
-                    <td className="actions">
-                      <button className="btn btn--sm" onClick={() => handleViewDetail(r.id)}>
-                        Detail
-                      </button>
-                      <button className="btn btn--sm" onClick={() => setEditingCase(r)}>
+                    <td className="actions ">
+                      <button className="btn btn--sm btn--outline" onClick={() => setEditingCase(r)}>
                         Edit
+                      </button>
+                      <button className="btn btn--sm btn--primary" onClick={() => handleViewDetail(r.id)}>
+                        Detail
                       </button>
                     </td>
                   </tr>

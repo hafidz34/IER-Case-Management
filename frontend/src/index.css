@@ -247,14 +247,41 @@ textarea.input {
   opacity: 0.6;
 }
 
+.btn:hover:not(:disabled) {
+  filter: brightness(0.99);
+}
+
 .btn--primary {
   background: var(--spil-green);
   border-color: var(--spil-green);
   color: #fff;
 }
 
+.btn--outline {
+  background: #fff;
+  border-color: rgba(11, 122, 59, 0.35);
+  color: var(--spil-green);
+}
+
+.btn--outline:hover:not(:disabled) {
+  background: rgba(11, 122, 59, 0.08);
+}
+
+.btn--danger {
+  background: #fff4f4;
+  border-color: #ffd2d2;
+  color: #7a0000;
+}
+
 .btn--ghost {
   background: transparent;
+}
+
+.btn--sm {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
 .alert {
@@ -286,6 +313,41 @@ textarea.input {
   text-align: left;
   padding: 10px 10px;
   vertical-align: top;
+}
+
+.table tbody tr:hover td {
+  background: #fbfcff;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.terlapor-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.terlapor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.terlapor-name {
+  font-weight: 800;
 }
 
 .table th {

@@ -1,7 +1,7 @@
 const BASE =
   import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000";
 
-type HttpMethod = "GET" | "POST" | "PUT";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -32,4 +32,5 @@ export const api = {
   get: <T>(path: string) => request<T>(path, "GET"),
   post: <T>(path: string, body: unknown) => request<T>(path, "POST", body),
   put: <T>(path: string, body: unknown) => request<T>(path, "PUT", body),
+  delete: <T>(path: string) => request<T>(path, "DELETE"),
 };
