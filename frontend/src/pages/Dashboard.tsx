@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import { casesApi, CaseRow } from "../api/cases";
+import { useEffect, useState, useMemo } from "react";
+import { casesApi, CaseRow, CasePersonRow } from "../api/cases";
 import { displayDateOrDash } from "../utils/date";
+import { masterApi, MasterItem } from "../api/master";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import Modal from "../components/Modal";
 
 function fmtDateOnly(v?: string | null) {
   return displayDateOrDash(v);
 }
-
 
 function fmtMoney(n?: number | null) {
   if (n === null || n === undefined) return "-";
@@ -16,17 +19,374 @@ function fmtMoney(n?: number | null) {
   }
 }
 
+function formatToIDR(value: string | number | null): string {
+  if (value === null || value === "") return "";
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "";
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
+}
+
+function parseIDR(value: string): number | null {
+  const cleaned = value.replace(/[^\d]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function fmtPercentage(n?: number | null): string {
+  if (n === null || n === undefined) return "-";
+  return parseFloat(n.toFixed(3)).toString();
+}
+
+// Fungsi pembantu untuk mengurai string tanggal dd-mm-yyyy
+function parseDateString(dateString: string | null): Date | null {
+  if (!dateString) return null;
+  const parts = dateString.split("-");
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Bulan di JS dimulai dari 0
+    const year = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+    // Periksa apakah tanggal valid
+    if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+      return date;
+    }
+  }
+  return null;
+}
+
+// Komponen Modal untuk Edit Case
+function EditCaseModal({
+  caseRow,
+  masters,
+  onClose,
+  onSave,
+}: {
+  caseRow: CaseRow;
+  masters: { statusProses: MasterItem[]; statusPengajuan: MasterItem[] };
+  onClose: () => void;
+  onSave: (updatedCase: CaseRow) => void;
+}) {
+  const [kerugian, setKerugian] = useState(caseRow.kerugian?.toString() ?? "");
+  const [statusProsesId, setStatusProsesId] = useState(caseRow.status_proses_id?.toString() ?? "");
+  const [statusPengajuanId, setStatusPengajuanId] = useState(caseRow.status_pengajuan_id?.toString() ?? "");
+  const [notes, setNotes] = useState(caseRow.notes ?? "");
+  const [caraMencegah, setCaraMencegah] = useState(caseRow.cara_mencegah ?? "");
+  const [hrbp, setHrbp] = useState(caseRow.hrbp ?? "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleSave() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const payload = {
+        kerugian: parseIDR(kerugian),
+        status_proses_id: statusProsesId ? parseInt(statusProsesId, 10) : null,
+        status_pengajuan_id: statusPengajuanId ? parseInt(statusPengajuanId, 10) : null,
+        notes,
+        cara_mencegah: caraMencegah,
+        hrbp,
+      };
+      const updatedCase = await casesApi.updateCase(caseRow.id, payload);
+      onSave(updatedCase);
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message || "Gagal menyimpan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={`Edit Case: ${caseRow.case_code}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn--ghost" onClick={onClose}>
+            Batal
+          </button>
+          <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
+            {loading ? "Menyimpan..." : "Simpan"}
+          </button>
+        </>
+      }
+    >
+      {err && <div className="alert">{err}</div>}
+      <div className="form-grid">
+        <div className="field">
+          <div className="field__label">Kerugian</div>
+          <input
+            className="input"
+            value={formatToIDR(kerugian)}
+            onChange={(e) => setKerugian(parseIDR(e.target.value)?.toString() ?? "")}
+          />
+        </div>
+        <div className="field">
+          <div className="field__label">Status Proses</div>
+          <select className="input" value={statusProsesId} onChange={(e) => setStatusProsesId(e.target.value)}>
+            <option value="">-- pilih --</option>
+            {masters.statusProses.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <div className="field__label">Status Pengajuan</div>
+          <select className="input" value={statusPengajuanId} onChange={(e) => setStatusPengajuanId(e.target.value)}>
+            <option value="">-- pilih --</option>
+            {masters.statusPengajuan.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <div className="field__label">Notes</div>
+          <textarea className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="field">
+          <div className="field__label">Cara Mencegah</div>
+          <textarea className="input" value={caraMencegah} onChange={(e) => setCaraMencegah(e.target.value)} />
+        </div>
+        <div className="field">
+          <div className="field__label">HRBP</div>
+          <input className="input" value={hrbp} onChange={(e) => setHrbp(e.target.value)} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Komponen Modal untuk Edit Keputusan Person
+function EditPersonModal({
+  person,
+  caseKerugian,
+  onClose,
+  onSave,
+}: {
+  person: CasePersonRow;
+  caseKerugian: number | null;
+  onClose: () => void;
+  onSave: (updatedPerson: CasePersonRow) => void;
+}) {
+  const [keputusanIer, setKeputusanIer] = useState(person.keputusan_ier ?? "");
+  const [keputusanFinal, setKeputusanFinal] = useState(person.keputusan_final ?? "");
+  const [nominalBeban, setNominalBeban] = useState(person.nominal_beban_karyawan?.toString() ?? "");
+  const [approvalHcca, setApprovalHcca] = useState<Date | null>(
+    parseDateString(person.approval_gm_hcca)
+  );
+  const [approvalFad, setApprovalFad] = useState<Date | null>(
+    parseDateString(person.approval_gm_fad)
+  );
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [persentaseBeban, setPersentaseBeban] = useState<number | null>(person.persentase_beban_karyawan ?? null);
+
+  useEffect(() => {
+    const kerugian = caseKerugian ?? 0;
+    const beban = parseIDR(nominalBeban) ?? 0;
+    if (!kerugian || kerugian <= 0 || !beban || beban < 0) {
+      setPersentaseBeban(0);
+      return;
+    }
+    const pct = Math.max(0, (beban / kerugian) * 100);
+    setPersentaseBeban(pct);
+  }, [caseKerugian, nominalBeban]);
+
+  useEffect(() => {
+    setKeputusanIer(person.keputusan_ier ?? "");
+    setKeputusanFinal(person.keputusan_final ?? "");
+    setNominalBeban(person.nominal_beban_karyawan?.toString() ?? "");
+    setApprovalHcca(parseDateString(person.approval_gm_hcca));
+    setApprovalFad(parseDateString(person.approval_gm_fad));
+    setPersentaseBeban(person.persentase_beban_karyawan ?? null);
+  }, [person]);
+
+  async function handleSave() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const payload = {
+        keputusan_ier: keputusanIer,
+        keputusan_final: keputusanFinal,
+        nominal_beban_karyawan: parseIDR(nominalBeban),
+        // persentaseBeban sudah berupa number
+        persentase_beban_karyawan: persentaseBeban, 
+        approval_gm_hcca: approvalHcca ? approvalHcca.toISOString().split("T")[0] : null,
+        approval_gm_fad: approvalFad ? approvalFad.toISOString().split("T")[0] : null,
+      };
+      const updatedPerson = await casesApi.updatePerson(person.id, payload);
+      onSave(updatedPerson);
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message || "Gagal menyimpan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={`Edit Keputusan: ${person.nama}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn--ghost" onClick={onClose}>
+            Batal
+          </button>
+          <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
+            {loading ? "Menyimpan..." : "Simpan"}
+          </button>
+        </>
+      }
+    >
+      {err && <div className="alert">{err}</div>}
+      <div className="form-grid">
+        <div className="field">
+          <div className="field__label">Nominal Beban Karyawan</div>
+          <input
+            className="input"
+            value={formatToIDR(nominalBeban)}
+            onChange={(e) => setNominalBeban(parseIDR(e.target.value)?.toString() ?? "")}
+          />
+        </div>
+        <div className="field">
+          <div className="field__label">Persentase Beban Karyawan</div>
+          <input className="input" value={`${fmtPercentage(persentaseBeban)}%`} readOnly />
+        </div>
+        <div className="field">
+          <div className="field__label">Approval GM HC&CA</div>
+          <DatePicker
+            className="input"
+            selected={approvalHcca}
+            onChange={(date) => setApprovalHcca(date)}
+            dateFormat="dd-MM-yyyy"
+            placeholderText="dd-mm-yyyy"
+          />
+        </div>
+        <div className="field">
+          <div className="field__label">Approval GM FAD</div>
+          <DatePicker
+            className="input"
+            selected={approvalFad}
+            onChange={(date) => setApprovalFad(date)}
+            dateFormat="dd-MM-yyyy"
+            placeholderText="dd-mm-yyyy"
+          />
+        </div>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
+          <div className="field__label">Keputusan IER</div>
+          <textarea className="input" value={keputusanIer} onChange={(e) => setKeputusanIer(e.target.value)} />
+        </div>
+        <div className="field" style={{ gridColumn: "1 / -1" }}>
+          <div className="field__label">Keputusan Final</div>
+          <textarea className="input" value={keputusanFinal} onChange={(e) => setKeputusanFinal(e.target.value)} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function CaseDetailModal({ caseRow, onClose }: { caseRow: CaseRow; onClose: () => void }) {
+  return (
+    <Modal
+      title={`Detail Case: ${caseRow.case_code}`}
+      onClose={onClose}
+      footer={
+        <button className="btn btn--primary" onClick={onClose}>
+          Tutup
+        </button>
+      }
+    >
+      <div className="summary-card">
+        <div className="summary-card__title">Informasi Umum</div>
+        <div className="summary-grid">
+          <div className="k">Divisi Case</div>
+          <div className="v">{caseRow.divisi_case?.name ?? "-"}</div>
+          <div className="k">Jenis Case</div>
+          <div className="v">{caseRow.jenis_case?.name ?? "-"}</div>
+          <div className="k">Tanggal Lapor</div>
+          <div className="v">{fmtDateOnly(caseRow.tanggal_lapor)}</div>
+          <div className="k">Tanggal Kejadian</div>
+          <div className="v">{fmtDateOnly(caseRow.tanggal_kejadian)}</div>
+          <div className="k">Lokasi Kejadian</div>
+          <div className="v">{caseRow.lokasi_kejadian ?? "-"}</div>
+          <div className="k">Judul IER</div>
+          <div className="v">{caseRow.judul_ier ?? "-"}</div>
+          <div className="k">Kerugian</div>
+          <div className="v">{fmtMoney(caseRow.kerugian)}</div>
+        </div>
+      </div>
+      <div className="summary-card">
+        <div className="summary-card__title">Status & Lainnya</div>
+        <div className="summary-grid">
+          <div className="k">Status Proses</div>
+          <div className="v">{caseRow.status_proses?.name ?? "-"}</div>
+          <div className="k">Status Pengajuan</div>
+          <div className="v">{caseRow.status_pengajuan?.name ?? "-"}</div>
+          <div className="k">Notes</div>
+          <div className="v">{caseRow.notes ?? "-"}</div>
+          <div className="k">Cara Mencegah</div>
+          <div className="v">{caseRow.cara_mencegah ?? "-"}</div>
+          <div className="k">HRBP</div>
+          <div className="v">{caseRow.hrbp ?? "-"}</div>
+        </div>
+      </div>
+      <div className="summary-card">
+        <div className="summary-card__title">Terlibat</div>
+        {caseRow.persons?.map((p) => (
+          <div key={p.id} className="summary-grid" style={{ marginBottom: 12, borderBottom: "1px solid #eee", paddingBottom: 12 }}>
+            <div className="k">Nama</div>
+            <div className="v">{p.nama}</div>
+            <div className="k">Jenis Karyawan</div>
+            <div className="v">{p.jenis_karyawan_terlapor?.name ?? "-"}</div>
+            <div className="k">Nominal Beban</div>
+            <div className="v">{fmtMoney(p.nominal_beban_karyawan)}</div>
+            <div className="k">Persentase Beban</div>
+            <div className="v">{p.persentase_beban_karyawan ? `${fmtPercentage(p.persentase_beban_karyawan)}%` : "-"}</div>
+            <div className="k">Keputusan IER</div>
+            <div className="v">{p.keputusan_ier ?? "-"}</div>
+            <div className="k">Keputusan Final</div>
+            <div className="v">{p.keputusan_final ?? "-"}</div>
+            <div className="k">Approval GM HC&CA</div>
+            <div className="v">{fmtDateOnly(p.approval_gm_hcca)}</div>
+            <div className="k">Approval GM FAD</div>
+            <div className="v">{fmtDateOnly(p.approval_gm_fad)}</div>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Dashboard() {
   const [rows, setRows] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [editingCase, setEditingCase] = useState<CaseRow | null>(null);
+  const [editingPerson, setEditingPerson] = useState<CasePersonRow | null>(null);
+  const [viewingCase, setViewingCase] = useState<CaseRow | null>(null);
+  const [masters, setMasters] = useState<{ statusProses: MasterItem[]; statusPengajuan: MasterItem[] }>({
+    statusProses: [],
+    statusPengajuan: [],
+  });
 
   async function load() {
     try {
       setErr(null);
       setLoading(true);
-      const data = await casesApi.list();
+      const [data, statusProses, statusPengajuan] = await Promise.all([
+        casesApi.list(),
+        masterApi.list("status-proses"),
+        masterApi.list("status-pengajuan"),
+      ]);
       setRows(data);
+      setMasters({ statusProses, statusPengajuan });
     } catch (e: any) {
       setErr(e?.message || "Network Error");
     } finally {
@@ -37,6 +397,33 @@ export default function Dashboard() {
   useEffect(() => {
     load();
   }, []);
+
+  async function handleViewDetail(caseId: number) {
+    try {
+      const caseData = await casesApi.getCase(caseId);
+      setViewingCase(caseData);
+    } catch (e: any) {
+      setErr(e?.message || "Gagal memuat detail");
+    }
+  }
+
+  function handleSaveCase(updatedCase: CaseRow) {
+    setRows(rows.map((r) => (r.id === updatedCase.id ? updatedCase : r)));
+  }
+
+  function handleSavePerson(updatedPerson: CasePersonRow) {
+    setRows(
+      rows.map((r) => {
+        if (r.id === updatedPerson.case_id) {
+          return {
+            ...r,
+            persons: r.persons?.map((p) => (p.id === updatedPerson.id ? updatedPerson : p)),
+          };
+        }
+        return r;
+      })
+    );
+  }
 
   return (
     <div>
@@ -60,13 +447,14 @@ export default function Dashboard() {
                   Kerugian
                 </th>
                 <th style={{ minWidth: 180 }}>Nama Terlapor</th>
+                <th style={{ width: 120 }}>Action</th>
               </tr>
             </thead>
 
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 12, opacity: 0.7 }}>
+                  <td colSpan={8} style={{ padding: 12, opacity: 0.7 }}>
                     {loading ? "Loading..." : "Belum ada case."}
                   </td>
                 </tr>
@@ -79,7 +467,30 @@ export default function Dashboard() {
                     <td>{r.lokasi_kejadian ?? "-"}</td>
                     <td>{r.judul_ier ?? "-"}</td>
                     <td className="col-money">{fmtMoney(r.kerugian)}</td>
-                    <td>{r.nama_terlapor ?? "-"}</td>
+                    <td>
+                      {r.persons && r.persons.length > 0 ? (
+                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                          {r.persons.map((p) => (
+                            <li key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              {p.nama}
+                              <button className="btn btn--sm" onClick={() => setEditingPerson(p)}>
+                                Edit Keputusan
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="actions">
+                      <button className="btn btn--sm" onClick={() => handleViewDetail(r.id)}>
+                        Detail
+                      </button>
+                      <button className="btn btn--sm" onClick={() => setEditingCase(r)}>
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -87,6 +498,26 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
+      {editingCase && (
+        <EditCaseModal
+          caseRow={editingCase}
+          masters={masters}
+          onClose={() => setEditingCase(null)}
+          onSave={handleSaveCase}
+        />
+      )}
+
+      {editingPerson && (
+        <EditPersonModal
+          person={editingPerson}
+          caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null}
+          onClose={() => setEditingPerson(null)}
+          onSave={handleSavePerson}
+        />
+      )}
+
+      {viewingCase && <CaseDetailModal caseRow={viewingCase} onClose={() => setViewingCase(null)} />}
     </div>
   );
 }

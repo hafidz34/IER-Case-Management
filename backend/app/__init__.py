@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_migrate import Migrate
 from dotenv import load_dotenv
 
 from .config import Config
@@ -20,6 +21,7 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": "*"}})
 
     db.init_app(app)
+    migrate = Migrate(app, db)
 
     app.register_blueprint(health_bp)
     app.register_blueprint(master_bp)
