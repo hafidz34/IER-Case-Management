@@ -368,8 +368,14 @@ def create_case():
         db.session.add(case)
         db.session.flush() 
 
-        for person_attrs in validated_persons_attrs:
-            person = CasePerson(case_id=case.id, **person_attrs)
+        # ✅ penting: isi person_seq + person_code (supaya tidak NULL)
+        for seq, person_attrs in enumerate(validated_persons_attrs, start=1):
+            person = CasePerson(
+                case_id=case.id,
+                person_seq=seq,
+                person_code=f"{case.case_code}/{seq}",
+                **person_attrs,
+            )
             db.session.add(person)
 
         db.session.commit() 
