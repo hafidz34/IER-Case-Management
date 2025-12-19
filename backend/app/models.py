@@ -121,8 +121,20 @@ class Case(db.Model):
 
 class CasePerson(db.Model):
     __tablename__ = "t_case_person"
+
+    __table_args__ = (
+        db.UniqueConstraint("case_id", "person_seq", name="uq_case_person_case_id_person_seq"),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     case_id = db.Column(db.Integer, db.ForeignKey("t_case.id", ondelete="CASCADE"), nullable=False)
+
+    # ✅ ID per-person di dalam satu case (incremental: 1..n)
+    person_seq = db.Column(db.Integer, nullable=False)
+
+    # ✅ ID lengkap untuk kebutuhan export (format: <case_code>/<person_seq>)
+    person_code = db.Column(db.String(128), unique=True, nullable=False)
+
     nama = db.Column(db.String(255), nullable=True)
     lokasi = db.Column(db.String(255), nullable=True)
     divisi = db.Column(db.String(255), nullable=True)

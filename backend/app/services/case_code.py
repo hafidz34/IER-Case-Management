@@ -8,8 +8,8 @@ from ..models import Case
 JAKARTA = ZoneInfo("Asia/Jakarta")
 
 def make_base(dt: datetime) -> str:
-    # format sesuai contoh kamu: D + M + YYYY (tanpa leading zero)
-    return f"{dt.day}{dt.month}{dt.year}"
+    # format sesuai requirement terbaru: dd/mm/yyyy
+    return dt.strftime("%d/%m/%Y")
 
 def next_case_code(session) -> str:
     now = datetime.now(JAKARTA)
@@ -18,14 +18,20 @@ def next_case_code(session) -> str:
     # lock per-base biar aman kalau 2 request barengan di hari yg sama
     session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": base})
 
+    # cari semua ID yang base-nya sama (hari yang sama)
     rows = session.execute(
-        select(Case.case_code).where(Case.case_code.like(f"{base}%"))
+        select(Case.case_code).where(Case.case_code.like(f"{base}/%"))
     ).scalars().all()
 
     max_seq = 0
     for code in rows:
-        suffix = code[len(base):]
-        if suffix.isdigit():
-            max_seq = max(max_seq, int(suffix))
+        # format global: dd/mm/yyyy/<seq>
+        if not code.startswith(base + "/"):
+            continue
 
-    return f"{base}{max_seq + 1}"
+        suffix = code[len(base) + 1 :]
+        seq_str = suffix.split("/", 1)[0]
+        if seq_str.isdigit():
+            max_seq = max(max_seq, int(seq_str))
+
+    return f"{base}/{max_seq + 1}"
