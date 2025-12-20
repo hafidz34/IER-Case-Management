@@ -16,6 +16,8 @@ from ..models import Case
 from ..services.case_code import next_case_code
 from ..models import Case, CasePerson 
 
+from app.services.dashboard import get_case_stats
+
 bp = Blueprint("cases", __name__, url_prefix="/api/cases")
 
 DATE_INPUT_FORMATS = (
@@ -304,6 +306,10 @@ def list_cases():
         print(f"Error in list_cases: {e}") 
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
+@bp.route('/stats', methods=['GET'])
+def case_stats():
+    stats = get_case_stats()
+    return jsonify(stats)
 
 @bp.get("/<int:case_id>")
 def get_case(case_id):

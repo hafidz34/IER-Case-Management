@@ -37,16 +37,14 @@ function fmtPercentage(n?: number | null): string {
   return parseFloat(n.toFixed(3)).toString();
 }
 
-// Fungsi pembantu untuk mengurai string tanggal dd-mm-yyyy
 function parseDateString(dateString: string | null): Date | null {
   if (!dateString) return null;
   const parts = dateString.split("-");
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // Bulan di JS dimulai dari 0
+    const month = parseInt(parts[1], 10) - 1;
     const year = parseInt(parts[2], 10);
     const date = new Date(year, month, day);
-    // Periksa apakah tanggal valid
     if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
       return date;
     }
@@ -54,18 +52,13 @@ function parseDateString(dateString: string | null): Date | null {
   return null;
 }
 
+type CaseStats = {
+  total: number;
+  details: Record<string, number>;
+};
+
 // Komponen Modal untuk Edit Case
-function EditCaseModal({
-  caseRow,
-  masters,
-  onClose,
-  onSave,
-}: {
-  caseRow: CaseRow;
-  masters: { statusProses: MasterItem[]; statusPengajuan: MasterItem[] };
-  onClose: () => void;
-  onSave: (updatedCase: CaseRow) => void;
-}) {
+function EditCaseModal({ caseRow, masters, onClose, onSave }: { caseRow: CaseRow; masters: { statusProses: MasterItem[]; statusPengajuan: MasterItem[] }; onClose: () => void; onSave: (updatedCase: CaseRow) => void }) {
   const [kerugian, setKerugian] = useState(caseRow.kerugian?.toString() ?? "");
   const [statusProsesId, setStatusProsesId] = useState(caseRow.status_proses_id?.toString() ?? "");
   const [statusPengajuanId, setStatusPengajuanId] = useState(caseRow.status_pengajuan_id?.toString() ?? "");
@@ -116,11 +109,7 @@ function EditCaseModal({
       <div className="form-grid">
         <div className="field">
           <div className="field__label">Kerugian</div>
-          <input
-            className="input"
-            value={formatToIDR(kerugian)}
-            onChange={(e) => setKerugian(parseIDR(e.target.value)?.toString() ?? "")}
-          />
+          <input className="input" value={formatToIDR(kerugian)} onChange={(e) => setKerugian(parseIDR(e.target.value)?.toString() ?? "")} />
         </div>
         <div className="field">
           <div className="field__label">Status Proses</div>
@@ -162,26 +151,12 @@ function EditCaseModal({
 }
 
 // Komponen Modal untuk Edit Keputusan Person
-function EditPersonModal({
-  person,
-  caseKerugian,
-  onClose,
-  onSave,
-}: {
-  person: CasePersonRow;
-  caseKerugian: number | null;
-  onClose: () => void;
-  onSave: (updatedPerson: CasePersonRow) => void;
-}) {
+function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: CasePersonRow; caseKerugian: number | null; onClose: () => void; onSave: (updatedPerson: CasePersonRow) => void }) {
   const [keputusanIer, setKeputusanIer] = useState(person.keputusan_ier ?? "");
   const [keputusanFinal, setKeputusanFinal] = useState(person.keputusan_final ?? "");
   const [nominalBeban, setNominalBeban] = useState(person.nominal_beban_karyawan?.toString() ?? "");
-  const [approvalHcca, setApprovalHcca] = useState<Date | null>(
-    parseDateString(person.approval_gm_hcca)
-  );
-  const [approvalFad, setApprovalFad] = useState<Date | null>(
-    parseDateString(person.approval_gm_fad)
-  );
+  const [approvalHcca, setApprovalHcca] = useState<Date | null>(parseDateString(person.approval_gm_hcca));
+  const [approvalFad, setApprovalFad] = useState<Date | null>(parseDateString(person.approval_gm_fad));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -215,8 +190,7 @@ function EditPersonModal({
         keputusan_ier: keputusanIer,
         keputusan_final: keputusanFinal,
         nominal_beban_karyawan: parseIDR(nominalBeban),
-        // persentaseBeban sudah berupa number
-        persentase_beban_karyawan: persentaseBeban, 
+        persentase_beban_karyawan: persentaseBeban,
         approval_gm_hcca: approvalHcca ? approvalHcca.toISOString().split("T")[0] : null,
         approval_gm_fad: approvalFad ? approvalFad.toISOString().split("T")[0] : null,
       };
@@ -249,11 +223,7 @@ function EditPersonModal({
       <div className="form-grid">
         <div className="field">
           <div className="field__label">Nominal Beban Karyawan</div>
-          <input
-            className="input"
-            value={formatToIDR(nominalBeban)}
-            onChange={(e) => setNominalBeban(parseIDR(e.target.value)?.toString() ?? "")}
-          />
+          <input className="input" value={formatToIDR(nominalBeban)} onChange={(e) => setNominalBeban(parseIDR(e.target.value)?.toString() ?? "")} />
         </div>
         <div className="field">
           <div className="field__label">Persentase Beban Karyawan</div>
@@ -261,23 +231,11 @@ function EditPersonModal({
         </div>
         <div className="field">
           <div className="field__label">Approval GM HC&CA</div>
-          <DatePicker
-            className="input"
-            selected={approvalHcca}
-            onChange={(date) => setApprovalHcca(date)}
-            dateFormat="dd-MM-yyyy"
-            placeholderText="dd-mm-yyyy"
-          />
+          <DatePicker className="input" selected={approvalHcca} onChange={(date) => setApprovalHcca(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
         </div>
         <div className="field">
           <div className="field__label">Approval GM FAD</div>
-          <DatePicker
-            className="input"
-            selected={approvalFad}
-            onChange={(date) => setApprovalFad(date)}
-            dateFormat="dd-MM-yyyy"
-            placeholderText="dd-mm-yyyy"
-          />
+          <DatePicker className="input" selected={approvalFad} onChange={(date) => setApprovalFad(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
         </div>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
           <div className="field__label">Keputusan IER</div>
@@ -371,22 +329,102 @@ export default function Dashboard() {
   const [editingCase, setEditingCase] = useState<CaseRow | null>(null);
   const [editingPerson, setEditingPerson] = useState<CasePersonRow | null>(null);
   const [viewingCase, setViewingCase] = useState<CaseRow | null>(null);
-  const [masters, setMasters] = useState<{ statusProses: MasterItem[]; statusPengajuan: MasterItem[] }>({
+  const [masters, setMasters] = useState<{ statusProses: MasterItem[]; statusPengajuan: MasterItem[]; divisiCase: MasterItem[] }>({
     statusProses: [],
     statusPengajuan: [],
+    divisiCase: [],
   });
+  const [stats, setStats] = useState<CaseStats | null>(null);
+  const [filters, setFilters] = useState<{ lokasi: string; divisiCaseId: string; startDate: Date | null; endDate: Date | null }>({
+    lokasi: "",
+    divisiCaseId: "",
+    startDate: null,
+    endDate: null,
+  });
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      const lokasiMatch = filters.lokasi ? (r.lokasi_kejadian || "").toLowerCase().includes(filters.lokasi.toLowerCase()) : true;
+
+      const divisiMatch = filters.divisiCaseId ? String(r.divisi_case_id ?? "") === filters.divisiCaseId : true;
+
+      const kejadianDate = parseDateString(r.tanggal_kejadian);
+      const startOk = filters.startDate ? !!kejadianDate && kejadianDate >= filters.startDate : true;
+      const endOk = filters.endDate ? !!kejadianDate && kejadianDate <= filters.endDate : true;
+
+      return lokasiMatch && divisiMatch && startOk && endOk;
+    });
+  }, [rows, filters]);
+
+  const rowsToRender = filteredRows;
+  const hasFilter = useMemo(() => Boolean(filters.lokasi || filters.divisiCaseId || filters.startDate || filters.endDate), [filters]);
+
+  const statusBuckets = useMemo(() => {
+    const buckets = { open: 0, ongoing: 0, closed: 0, total: rowsToRender.length };
+    const closedWords = ["selesai", "closed", "finish", "done", "complete"];
+    const ongoingWords = ["ongoing", "proses", "progress", "jalan"];
+    const openWords = ["open", "baru", "new"];
+
+    rowsToRender.forEach((r) => {
+      const proses = (r.status_proses_name || r.status_proses?.name || "").toLowerCase();
+      const pengajuan = (r.status_pengajuan_name || r.status_pengajuan?.name || "").toLowerCase();
+      const statusText = `${proses} ${pengajuan}`.trim();
+      if (!statusText) return;
+      if (closedWords.some((w) => statusText.includes(w))) {
+        buckets.closed += 1;
+      } else if (ongoingWords.some((w) => statusText.includes(w))) {
+        buckets.ongoing += 1;
+      } else if (openWords.some((w) => statusText.includes(w))) {
+        buckets.open += 1;
+      }
+    });
+
+    return buckets;
+  }, [rowsToRender]);
+
+  const statusBreakdown = useMemo(() => {
+    if (rowsToRender.length) {
+      const counts: Record<string, number> = {};
+      rowsToRender.forEach((r) => {
+        const key = r.status_pengajuan_name || r.status_pengajuan?.name || r.status_proses_name || r.status_proses?.name || "Unknown";
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      return counts;
+    }
+    return stats?.details ?? {};
+  }, [rowsToRender, stats]);
+
+  const displayStatusBreakdown = useMemo(() => {
+    const openWords = ["open", "baru", "new"];
+    const ongoingWords = ["ongoing", "proses", "progress", "jalan"];
+    const closedWords = ["selesai", "closed", "finish", "done", "complete"];
+    return Object.entries(statusBreakdown).filter(([key]) => {
+      const keyLower = key.toLowerCase();
+      if (closedWords.some((w) => keyLower.includes(w))) return false;
+      if (ongoingWords.some((w) => keyLower.includes(w))) return false;
+      if (openWords.some((w) => keyLower.includes(w))) return false;
+      return true;
+    });
+  }, [statusBreakdown]);
+
+  const totalCases = useMemo(() => (hasFilter ? rowsToRender.length : stats?.total ?? rows.length), [hasFilter, rowsToRender.length, stats, rows.length]);
 
   async function load() {
     try {
       setErr(null);
       setLoading(true);
-      const [data, statusProses, statusPengajuan] = await Promise.all([
+      const [data, statusProses, statusPengajuan, divisiCase, statsData] = await Promise.all([
         casesApi.list(),
         masterApi.list("status-proses"),
         masterApi.list("status-pengajuan"),
+        masterApi.list("divisi-case"),
+        // Fetch stats, handle error gracefully agar halaman tetap jalan meski stats gagal
+        fetch("/api/cases/stats")
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null),
       ]);
       setRows(data);
-      setMasters({ statusProses, statusPengajuan });
+      setMasters({ statusProses, statusPengajuan, divisiCase });
+      if (statsData) setStats(statsData);
     } catch (e: any) {
       setErr(e?.message || "Network Error");
     } finally {
@@ -409,6 +447,8 @@ export default function Dashboard() {
 
   function handleSaveCase(updatedCase: CaseRow) {
     setRows(rows.map((r) => (r.id === updatedCase.id ? updatedCase : r)));
+    // refresh from server supaya status/nama relasi & statistik ikut terbarui
+    load();
   }
 
   function handleSavePerson(updatedPerson: CasePersonRow) {
@@ -423,6 +463,16 @@ export default function Dashboard() {
         return r;
       })
     );
+    load();
+  }
+
+  function getStatusColor(status: string): string {
+    const s = status.toLowerCase();
+    if (s.includes("selesai") || s.includes("closed") || s.includes("finish")) return "#22c55e"; // Green
+    if (s.includes("proses") || s.includes("ongoing") || s.includes("jalan")) return "#eab308"; // Yellow
+    if (s.includes("batal") || s.includes("cancel") || s.includes("reject")) return "#ef4444"; // Red
+    if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6"; // Blue
+    return "#64748b"; // Gray default
   }
 
   return (
@@ -430,6 +480,66 @@ export default function Dashboard() {
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
       </div>
+
+      <div className="panel" style={{ padding: 12, marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, alignItems: "end" }}>
+          <div>
+            <div className="field__label">Lokasi Kejadian</div>
+            <input className="input" placeholder="Cari lokasi..." value={filters.lokasi} onChange={(e) => setFilters({ ...filters, lokasi: e.target.value })} />
+          </div>
+          <div>
+            <div className="field__label">Divisi Case</div>
+            <select className="input" value={filters.divisiCaseId} onChange={(e) => setFilters({ ...filters, divisiCaseId: e.target.value })}>
+              <option value="">-- pilih --</option>
+              {masters.divisiCase.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div className="field__label">Tanggal Kejadian Dari</div>
+            <DatePicker className="input" selected={filters.startDate} onChange={(date) => setFilters({ ...filters, startDate: date })} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" isClearable />
+          </div>
+          <div>
+            <div className="field__label">Tanggal Kejadian Sampai</div>
+            <DatePicker className="input" selected={filters.endDate} onChange={(date) => setFilters({ ...filters, endDate: date })} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" isClearable />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn--outline" style={{ width: "100%" }} onClick={() => setFilters({ lokasi: "", divisiCaseId: "", startDate: null, endDate: null })}>
+              Reset Filter
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {(stats || rows.length > 0) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+          <div className="panel" style={{ padding: "16px", borderLeft: "4px solid #3b82f6" }}>
+            <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 700 }}>Open</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, marginTop: "4px" }}>{statusBuckets.open}</div>
+          </div>
+          <div className="panel" style={{ padding: "16px", borderLeft: "4px solid #eab308" }}>
+            <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 700 }}>Ongoing</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, marginTop: "4px" }}>{statusBuckets.ongoing}</div>
+          </div>
+          <div className="panel" style={{ padding: "16px", borderLeft: "4px solid #22c55e" }}>
+            <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 700 }}>Closed</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, marginTop: "4px" }}>{statusBuckets.closed}</div>
+          </div>
+          <div className="panel" style={{ padding: "16px", borderLeft: "4px solid #64748b" }}>
+            <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 700 }}>Total Kasus</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, marginTop: "4px" }}>{totalCases}</div>
+          </div>
+          {displayStatusBreakdown.map(([key, val]) => (
+            <div key={key} className="panel" style={{ padding: "16px", borderLeft: `4px solid ${getStatusColor(key)}` }}>
+              <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 700 }}>{key}</div>
+              <div style={{ fontSize: "24px", fontWeight: 800, marginTop: "4px" }}>{val}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {err && <div className="alert">{err}</div>}
 
@@ -452,14 +562,14 @@ export default function Dashboard() {
             </thead>
 
             <tbody>
-              {rows.length === 0 ? (
+              {rowsToRender.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ padding: 12, opacity: 0.7 }}>
                     {loading ? "Loading..." : "Belum ada case."}
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                rowsToRender.map((r) => (
                   <tr key={r.id}>
                     <td className="mono">{r.case_code}</td>
                     <td>{r.divisi_case_name ?? "-"}</td>
@@ -499,23 +609,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {editingCase && (
-        <EditCaseModal
-          caseRow={editingCase}
-          masters={masters}
-          onClose={() => setEditingCase(null)}
-          onSave={handleSaveCase}
-        />
-      )}
+      {editingCase && <EditCaseModal caseRow={editingCase} masters={masters} onClose={() => setEditingCase(null)} onSave={handleSaveCase} />}
 
-      {editingPerson && (
-        <EditPersonModal
-          person={editingPerson}
-          caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null}
-          onClose={() => setEditingPerson(null)}
-          onSave={handleSavePerson}
-        />
-      )}
+      {editingPerson && <EditPersonModal person={editingPerson} caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null} onClose={() => setEditingPerson(null)} onSave={handleSavePerson} />}
 
       {viewingCase && <CaseDetailModal caseRow={viewingCase} onClose={() => setViewingCase(null)} />}
     </div>
