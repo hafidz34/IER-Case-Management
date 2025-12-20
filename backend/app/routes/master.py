@@ -70,7 +70,6 @@ def update_master(kind: str, item_id: int):
     if not row:
         return jsonify({"error": "not found"}), 404
 
-    # Enforce uniqueness (same behavior as create: unique names)
     exists = (
         db.session.query(model)
         .filter(model.name == name, model.id != item_id)
@@ -93,9 +92,7 @@ def delete_master(kind: str, item_id: int):
     row = db.session.get(model, item_id)
     if not row:
         return jsonify({"error": "not found"}), 404
-
-    # Pre-check references to provide a clearer error than raw FK exceptions.
-    # This does not modify database schema; it only checks usage.
+    
     usage_checks = {
         "jenis-case": ("t_case.jenis_case_id", Case, Case.jenis_case_id),
         "divisi-case": ("t_case.divisi_case_id", Case, Case.divisi_case_id),
@@ -133,7 +130,6 @@ def delete_master(kind: str, item_id: int):
         return jsonify({"status": "deleted", "id": item_id}), 200
     except IntegrityError as exc:
         db.session.rollback()
-        # Fallback: usually happens if the master row is referenced by existing cases/persons.
         return (
             jsonify(
                 {
