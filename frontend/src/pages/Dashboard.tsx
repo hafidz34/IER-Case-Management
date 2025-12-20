@@ -57,7 +57,8 @@ type CaseStats = {
   details: Record<string, number>;
 };
 
-// Komponen Modal untuk Edit Case
+// --- KOMPONEN MODAL ---
+
 function EditCaseModal({
   caseRow,
   masters,
@@ -209,7 +210,6 @@ function EditCaseModal({
   );
 }
 
-// Komponen Modal untuk Edit Keputusan Person
 function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: CasePersonRow; caseKerugian: number | null; onClose: () => void; onSave: (updatedPerson: CasePersonRow) => void }) {
   const [keputusanIer, setKeputusanIer] = useState(person.keputusan_ier ?? "");
   const [keputusanFinal, setKeputusanFinal] = useState(person.keputusan_final ?? "");
@@ -381,6 +381,8 @@ function CaseDetailModal({ caseRow, onClose }: { caseRow: CaseRow; onClose: () =
   );
 }
 
+// --- FUNGSI DASHBOARD UTAMA ---
+
 export default function Dashboard() {
   const [rows, setRows] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -400,16 +402,14 @@ export default function Dashboard() {
     startDate: null,
     endDate: null,
   });
+
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
       const lokasiMatch = filters.lokasi ? (r.lokasi_kejadian || "").toLowerCase().includes(filters.lokasi.toLowerCase()) : true;
-
       const divisiMatch = filters.divisiCaseId ? String(r.divisi_case_id ?? "") === filters.divisiCaseId : true;
-
       const kejadianDate = parseDateString(r.tanggal_kejadian);
       const startOk = filters.startDate ? !!kejadianDate && kejadianDate >= filters.startDate : true;
       const endOk = filters.endDate ? !!kejadianDate && kejadianDate <= filters.endDate : true;
-
       return lokasiMatch && divisiMatch && startOk && endOk;
     });
   }, [rows, filters]);
@@ -436,7 +436,6 @@ export default function Dashboard() {
         buckets.open += 1;
       }
     });
-
     return buckets;
   }, [rowsToRender]);
 
@@ -476,10 +475,7 @@ export default function Dashboard() {
         masterApi.list("status-proses"),
         masterApi.list("status-pengajuan"),
         masterApi.list("divisi-case"),
-        // Fetch stats, handle error gracefully agar halaman tetap jalan meski stats gagal
-        fetch("/api/cases/stats")
-          .then((res) => (res.ok ? res.json() : null))
-          .catch(() => null),
+        fetch("/api/cases/stats").then((res) => (res.ok ? res.json() : null)).catch(() => null),
       ]);
       setRows(data);
       setMasters({ statusProses, statusPengajuan, divisiCase });
@@ -506,13 +502,11 @@ export default function Dashboard() {
 
   function handleSaveCase(updatedCase: CaseRow) {
     setRows(rows.map((r) => (r.id === updatedCase.id ? updatedCase : r)));
-    // refresh from server supaya status/nama relasi & statistik ikut terbarui
     load();
   }
 
   function handleSavePerson(updatedPerson: CasePersonRow) {
-    setRows(
-      rows.map((r) => {
+    setRows(rows.map((r) => {
         if (r.id === updatedPerson.case_id) {
           return {
             ...r,
@@ -527,17 +521,36 @@ export default function Dashboard() {
 
   function handleDeleteCase(deletedCaseId: number) {
     setRows(rows.filter((r) => r.id !== deletedCaseId));
-    // Refresh data dari server untuk memastikan statistik juga terbarui
     load();
+  }
+
+  async function handleDownloadPdf(personId: number, personCode: string) {
+    try {
+      setLoading(true);
+      const blob = await casesApi.downloadIerPdf(personId);
+      if (!blob || blob.size === 0) throw new Error("File PDF kosong.");
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement("a");
+      link.href = url;
+      const safeName = personCode.replace(/\//g, "-");
+      link.setAttribute("download", `IER_${safeName}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (e: any) {
+      alert("Gagal download PDF: " + (e?.message || "Server Error"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function getStatusColor(status: string): string {
     const s = status.toLowerCase();
-    if (s.includes("selesai") || s.includes("closed") || s.includes("finish")) return "#22c55e"; // Green
-    if (s.includes("proses") || s.includes("ongoing") || s.includes("jalan")) return "#eab308"; // Yellow
-    if (s.includes("batal") || s.includes("cancel") || s.includes("reject")) return "#ef4444"; // Red
-    if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6"; // Blue
-    return "#64748b"; // Gray default
+    if (s.includes("selesai") || s.includes("closed") || s.includes("finish")) return "#22c55e"; 
+    if (s.includes("proses") || s.includes("ongoing") || s.includes("jalan")) return "#eab308"; 
+    if (s.includes("batal") || s.includes("cancel") || s.includes("reject")) return "#ef4444"; 
+    if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6"; 
+    return "#64748b"; 
   }
 
   return (
@@ -647,10 +660,19 @@ export default function Dashboard() {
                         <ul className="terlapor-list">
                           {r.persons.map((p) => (
                             <li key={p.id} className="terlapor-item">
-                              <div className="terlapor-name">{p.nama}</div>
-                              <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
-                                Edit Keputusan
-                              </button>
+                              <div className="terlapor-name">{p.nama} <span style={{fontSize: '0.8em', color: '#666', marginLeft: '6px'}}>({p.person_code})</span></div>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
+                                  Edit Keputusan
+                                </button>
+                                <button 
+                                  className="btn btn--sm btn--primary" 
+                                  title="Download IER Form PDF"
+                                  onClick={() => handleDownloadPdf(p.id, p.person_code)}
+                                >
+                                  PDF
+                                </button>
+                              </div>
                             </li>
                           ))}
                         </ul>

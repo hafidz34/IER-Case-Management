@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>IER Form</title>
+    <style>
+        @page { size: A4; margin: 20px; }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #000; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .company-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+        .form-title { font-size: 14px; font-weight: bold; text-decoration: underline; }
+        
+        .info-table { width: 100%; margin-bottom: 20px; }
+        .info-table td { padding: 4px; vertical-align: top; }
+        .label { width: 130px; font-weight: bold; }
+        .colon { width: 10px; }
+        
+        .section-title { font-weight: bold; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #ccc; }
+        .content-box { 
+            border: 1px solid #000; 
+            min-height: 80px; 
+            padding: 8px; 
+            margin-bottom: 10px; 
+        }
+        
+        .signature-table { width: 100%; margin-top: 40px; text-align: center; border: 1px solid #000; }
+        .signature-table td { border: 1px solid #000; padding: 10px; width: 33%; vertical-align: top; }
+        .sign-space { height: 60px; }
+        .sign-name { font-weight: bold; text-decoration: underline; }
+        .sign-role { font-size: 10px; color: #333; }
+        
+        .footer { font-size: 9px; margin-top: 20px; font-style: italic; color: #555; border-top: 1px solid #ccc; padding-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="company-name">PT. SALAM PACIFIC INDONESIA LINES</div>
+        <div class="form-title">INDUSTRIAL & EMPLOYEE RELATION FORM - FINAL</div>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <td class="label">Nomor Form</td><td class="colon">:</td>
+            <td>{{ person.person_code }}</td>
+        </tr>
+        <tr>
+            <td class="label">Tgl. Proses</td><td class="colon">:</td>
+            <td>{{ case.tanggal_proses_ier_str if case.tanggal_proses_ier_str else "-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Tentang / Judul</td><td class="colon">:</td>
+            <td>{{ case.judul_ier }}</td>
+        </tr>
+        <tr>
+            <td class="label">Nama Terlapor</td><td class="colon">:</td>
+            <td>{{ person.nama }}</td>
+        </tr>
+        <tr>
+            <td class="label">Divisi / Dept</td><td class="colon">:</td>
+            <td>{{ person.divisi }} / {{ person.departemen }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">PERTIMBANGAN</div>
+    <div style="font-weight: bold; font-size: 11px;">Kronologi Berita Acara (BA):</div>
+    <div class="content-box">
+        {{ case.kronologi_html | safe if case.kronologi_html else "Tidak ada kronologi." }}
+    </div>
+
+    <div class="section-title">KEPUTUSAN</div>
+    <div style="font-weight: bold; font-size: 11px;">Keputusan oleh IR / Final:</div>
+    <div class="content-box">
+        <strong>Keputusan IER:</strong><br/>
+        {{ person.keputusan_ier_html | safe if person.keputusan_ier_html else "-" }}
+        
+        <br/><br/>
+        <strong>Keputusan Final:</strong><br/>
+        {{ person.keputusan_final_html | safe if person.keputusan_final_html else "-" }}
+        
+        {% if person.nominal_beban_karyawan %}
+        <br/><br/>
+        <strong>Beban Kerugian:</strong> Rp {{ "{:,.0f}".format(person.nominal_beban_karyawan).replace(",", ".") }}
+        {% endif %}
+    </div>
+
+    <table class="signature-table">
+        <tr>
+            <td>
+                <strong>DIAJUKAN OLEH :</strong>
+                <div class="sign-space"></div>
+                <div class="sign-name">Nico Erwin Hasudungan Sitorus</div>
+                <div class="sign-role">Industrial & Employees Relation</div>
+            </td>
+            <td>
+                <strong>DISETUJUI OLEH :</strong>
+                <div class="sign-space"></div>
+                <div class="sign-name">Dominikus Putranda Romo Ganggut</div>
+                <div class="sign-role">Human Capital & Corporate Affairs General Manager</div>
+                <div style="font-size: 9px; margin-top:2px;">
+                    {% if person.approval_gm_hcca %} Tgl: {{ person.approval_gm_hcca }} {% endif %}
+                </div>
+            </td>
+            <td>
+                <strong>DISETUJUI OLEH :</strong>
+                <div class="sign-space"></div>
+                <div class="sign-name">Sophy Widyawati</div>
+                <div class="sign-role">Finance & Administration General Manager</div>
+                <div style="font-size: 9px; margin-top:2px;">
+                    {% if person.approval_gm_fad %} Tgl: {{ person.approval_gm_fad }} {% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        IER FORM: Keputusan pergantian dan mekanisme yang tertulis dalam IER Form bersifat mutlak dan tidak dapat diganggu gugat oleh siapapun.
+        Mekanisme Pergantian Kerugian mengacu pada PPG No: 11109.01.11-01
+    </div>
+
+</body>
+</html>
