@@ -473,19 +473,6 @@ export default function InputCase() {
             />
           </div>
 
-          <div className="field">
-            <div className="field__label">Kerugian by Case (Rp)</div>
-            <input 
-              className="input" 
-              value={formatToIDR(form.kerugian_by_case)} 
-              onChange={(e) => {
-                const val = parseIDR(e.target.value)?.toString() ?? "";
-                setForm(p => ({ ...p, kerugian_by_case: val }));
-              }} 
-              placeholder="Rp 0"
-            />
-          </div>
-
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <div className="field__label">Kronologi</div>
             <textarea className="input" rows={4} value={form.kronologi} onChange={set("kronologi")} />

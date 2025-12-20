@@ -203,4 +203,10 @@ export const casesApi = {
     const res = await api.put<any>(`${CASES_PATH}/persons/${id}`, payload);
     return normalizePersonRow(res);
   },
+
+  async deleteCase(id: number): Promise<{id: number }> {
+    const res = await api.delete<{ status: string; id: number }>(`${CASES_PATH}/${id}`);
+    return { id: res.id };
+  }
+
 }
