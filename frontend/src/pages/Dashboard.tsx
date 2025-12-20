@@ -58,7 +58,19 @@ type CaseStats = {
 };
 
 // Komponen Modal untuk Edit Case
-function EditCaseModal({ caseRow, masters, onClose, onSave }: { caseRow: CaseRow; masters: { statusProses: MasterItem[]; statusPengajuan: MasterItem[] }; onClose: () => void; onSave: (updatedCase: CaseRow) => void }) {
+function EditCaseModal({
+  caseRow,
+  masters,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  caseRow: CaseRow;
+  masters: { statusProses: MasterItem[]; statusPengajuan: MasterItem[] };
+  onClose: () => void;
+  onSave: (updatedCase: CaseRow) => void;
+  onDelete: (deletedCaseId: number) => void;
+}) {
   const [kerugian, setKerugian] = useState(caseRow.kerugian?.toString() ?? "");
   const [statusProsesId, setStatusProsesId] = useState(caseRow.status_proses_id?.toString() ?? "");
   const [statusPengajuanId, setStatusPengajuanId] = useState(caseRow.status_pengajuan_id?.toString() ?? "");
@@ -67,6 +79,7 @@ function EditCaseModal({ caseRow, masters, onClose, onSave }: { caseRow: CaseRow
   const [hrbp, setHrbp] = useState(caseRow.hrbp ?? "");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   async function handleSave() {
     setLoading(true);
@@ -90,63 +103,109 @@ function EditCaseModal({ caseRow, masters, onClose, onSave }: { caseRow: CaseRow
     }
   }
 
+  function handleDelete() {
+    setShowDeleteConfirm(true);
+  }
+
+  async function confirmDelete() {
+    setShowDeleteConfirm(false);
+    setLoading(true);
+    setErr(null);
+    try {
+      await casesApi.deleteCase(caseRow.id);
+      onDelete(caseRow.id);
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message || "Gagal menghapus kasus");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <Modal
-      title={`Edit Case: ${caseRow.case_code}`}
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn btn--ghost" onClick={onClose}>
-            Batal
-          </button>
-          <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
-            {loading ? "Menyimpan..." : "Simpan"}
-          </button>
-        </>
-      }
-    >
-      {err && <div className="alert">{err}</div>}
-      <div className="form-grid">
-        <div className="field">
-          <div className="field__label">Kerugian</div>
-          <input className="input" value={formatToIDR(kerugian)} onChange={(e) => setKerugian(parseIDR(e.target.value)?.toString() ?? "")} />
+    <>
+      <Modal
+        title={`Edit Case: ${caseRow.case_code}`}
+        onClose={onClose}
+        footer={
+          <>
+            <button className="btn btn--danger" onClick={handleDelete} disabled={loading} style={{ marginRight: "auto" }}>
+              {loading ? "Menghapus..." : "Hapus Kasus"}
+            </button>
+            <button className="btn btn--ghost" onClick={onClose} disabled={loading}>
+              Batal
+            </button>
+            <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
+              {loading ? "Menyimpan..." : "Simpan"}
+            </button>
+          </>
+        }
+      >
+        {err && <div className="alert">{err}</div>}
+        <div className="form-grid">
+          <div className="field">
+            <div className="field__label">Kerugian</div>
+            <input className="input" value={formatToIDR(kerugian)} onChange={(e) => setKerugian(parseIDR(e.target.value)?.toString() ?? "")} />
+          </div>
+          <div className="field">
+            <div className="field__label">Status Proses</div>
+            <select className="input" value={statusProsesId} onChange={(e) => setStatusProsesId(e.target.value)}>
+              <option value="">-- pilih --</option>
+              {masters.statusProses.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <div className="field__label">Status Pengajuan</div>
+            <select className="input" value={statusPengajuanId} onChange={(e) => setStatusPengajuanId(e.target.value)}>
+              <option value="">-- pilih --</option>
+              {masters.statusPengajuan.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <div className="field__label">Notes</div>
+            <textarea className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div className="field">
+            <div className="field__label">Cara Mencegah</div>
+            <textarea className="input" value={caraMencegah} onChange={(e) => setCaraMencegah(e.target.value)} />
+          </div>
+          <div className="field">
+            <div className="field__label">HRBP</div>
+            <input className="input" value={hrbp} onChange={(e) => setHrbp(e.target.value)} />
+          </div>
         </div>
-        <div className="field">
-          <div className="field__label">Status Proses</div>
-          <select className="input" value={statusProsesId} onChange={(e) => setStatusProsesId(e.target.value)}>
-            <option value="">-- pilih --</option>
-            {masters.statusProses.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <div className="field__label">Status Pengajuan</div>
-          <select className="input" value={statusPengajuanId} onChange={(e) => setStatusPengajuanId(e.target.value)}>
-            <option value="">-- pilih --</option>
-            {masters.statusPengajuan.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <div className="field__label">Notes</div>
-          <textarea className="input" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="field">
-          <div className="field__label">Cara Mencegah</div>
-          <textarea className="input" value={caraMencegah} onChange={(e) => setCaraMencegah(e.target.value)} />
-        </div>
-        <div className="field">
-          <div className="field__label">HRBP</div>
-          <input className="input" value={hrbp} onChange={(e) => setHrbp(e.target.value)} />
-        </div>
-      </div>
-    </Modal>
+      </Modal>
+
+      {showDeleteConfirm && (
+        <Modal
+          title="Konfirmasi Hapus"
+          onClose={() => setShowDeleteConfirm(false)}
+          footer={
+            <>
+              <button className="btn btn--ghost" onClick={() => setShowDeleteConfirm(false)}>
+                Batal
+              </button>
+              <button className="btn btn--danger" onClick={confirmDelete} disabled={loading}>
+                {loading ? "Menghapus..." : "Hapus"}
+              </button>
+            </>
+          }
+        >
+          <p>
+            Apakah Anda yakin ingin menghapus kasus <strong>{caseRow.case_code}</strong>?
+          </p>
+          {err && <div className="alert">{err}</div>}
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -385,7 +444,7 @@ export default function Dashboard() {
     if (rowsToRender.length) {
       const counts: Record<string, number> = {};
       rowsToRender.forEach((r) => {
-        const key = r.status_pengajuan_name || r.status_pengajuan?.name || r.status_proses_name || r.status_proses?.name || "Unknown";
+        const key = r.status_pengajuan_name || r.status_pengajuan?.name || r.status_proses_name || r.status_proses?.name || "Terlapor";
         counts[key] = (counts[key] || 0) + 1;
       });
       return counts;
@@ -463,6 +522,12 @@ export default function Dashboard() {
         return r;
       })
     );
+    load();
+  }
+
+  function handleDeleteCase(deletedCaseId: number) {
+    setRows(rows.filter((r) => r.id !== deletedCaseId));
+    // Refresh data dari server untuk memastikan statistik juga terbarui
     load();
   }
 
@@ -609,7 +674,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {editingCase && <EditCaseModal caseRow={editingCase} masters={masters} onClose={() => setEditingCase(null)} onSave={handleSaveCase} />}
+      {editingCase && (
+        <EditCaseModal
+          caseRow={editingCase}
+          masters={masters}
+          onClose={() => setEditingCase(null)}
+          onSave={handleSaveCase}
+          onDelete={handleDeleteCase}
+        />
+      )}
 
       {editingPerson && <EditPersonModal person={editingPerson} caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null} onClose={() => setEditingPerson(null)} onSave={handleSavePerson} />}
 

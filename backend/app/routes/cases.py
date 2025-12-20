@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, subqueryload
 
 from ..extensions import db
-from ..models import Case
+from ..models import Case, CasePerson
 from ..services.case_code import next_case_code
 from ..models import Case, CasePerson 
 
@@ -374,7 +374,6 @@ def create_case():
         db.session.add(case)
         db.session.flush() 
 
-        # ✅ penting: isi person_seq + person_code (supaya tidak NULL)
         for seq, person_attrs in enumerate(validated_persons_attrs, start=1):
             person = CasePerson(
                 case_id=case.id,
@@ -474,4 +473,19 @@ def update_person(person_id):
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": "Server error", "detail": str(e)}), 500
+
+@bp.delete("/<int:case_id>")
+def delete_case(case_id):
+    case = db.session.get(Case, case_id)
+    if not case:
+        return jsonify({"error": "Not found", "detail": f"Case dengan ID {case_id} tidak ditemukan."}), 404
+
+    try:
+        db.session.delete(case)
+        db.session.commit()
+        return jsonify({"status": "success", "id": case_id}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting case {case_id}: {e}") 
         return jsonify({"error": "Server error", "detail": str(e)}), 500
