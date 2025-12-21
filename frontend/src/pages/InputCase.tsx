@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { casesApi, CaseCreatePayload } from "../api/cases";
 import { masterApi, MasterItem } from "../api/master";
+import { api } from "../api/client";
 import { normalizeDateForPayload } from "../utils/date";
 
 function formatToIDR(value: string | number | null): string {
@@ -42,6 +43,19 @@ type PersonFormState = {
   nominal_beban_karyawan: string;
 };
 
+type AiCaseSuggestion = {
+  divisi_case_id?: number | null;
+  jenis_case_id?: number | null;
+  tanggal_lapor?: string | null;
+  tanggal_kejadian?: string | null;
+  lokasi_kejadian?: string | null;
+  judul_ier?: string | null;
+  tanggal_proses_ier?: string | null;
+  kerugian?: number | null;
+  kronologi?: string | null;
+  // fields yang selalu null dari LLM diabaikan di sini
+};
+
 function toNumOrNull(v: string): number | null {
   const s = v.trim();
   if (!s) return null;
@@ -54,6 +68,9 @@ export default function InputCase() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const msgRef = useRef<HTMLDivElement | null>(null);
   const errRef = useRef<HTMLDivElement | null>(null);
@@ -106,6 +123,12 @@ export default function InputCase() {
     },
   ]);
 
+  const parseDateOrNull = (value: string | null | undefined) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
   const addPerson = () => {
     setPersons([
       ...persons,
@@ -133,7 +156,7 @@ export default function InputCase() {
   const calculatePercent = (nominalStr: string, kerugianStr: string) => {
     const nominal = parseIDR(nominalStr) || 0;
     const kerugian = parseIDR(kerugianStr) || 0;
-    
+
     if (kerugian > 0 && nominal >= 0) {
       return ((nominal / kerugian) * 100).toFixed(2) + "%";
     }
@@ -156,17 +179,54 @@ export default function InputCase() {
     const rawVal = e.target.value;
     const numVal = parseIDR(rawVal);
     const strVal = numVal !== null ? numVal.toString() : "";
-    
+
     setForm((p) => ({ ...p, kerugian: strVal }));
 
     // Hitung ulang persentase semua orang karena kerugian berubah
-    setPersons((prevPersons) => 
+    setPersons((prevPersons) =>
       prevPersons.map((p) => ({
         ...p,
-        persentase_beban_karyawan: calculatePercent(p.nominal_beban_karyawan, strVal)
+        persentase_beban_karyawan: calculatePercent(p.nominal_beban_karyawan, strVal),
       }))
     );
   };
+
+  const applyAiDataToForm = (data: AiCaseSuggestion) => {
+    setForm((prev) => ({
+      ...prev,
+      divisi_case_id: data.divisi_case_id !== undefined && data.divisi_case_id !== null ? String(data.divisi_case_id) : prev.divisi_case_id,
+      jenis_case_id: data.jenis_case_id !== undefined && data.jenis_case_id !== null ? String(data.jenis_case_id) : prev.jenis_case_id,
+      tanggal_lapor: data.tanggal_lapor !== undefined ? parseDateOrNull(data.tanggal_lapor) ?? prev.tanggal_lapor : prev.tanggal_lapor,
+      tanggal_kejadian: data.tanggal_kejadian !== undefined ? parseDateOrNull(data.tanggal_kejadian) ?? prev.tanggal_kejadian : prev.tanggal_kejadian,
+      lokasi_kejadian: data.lokasi_kejadian !== undefined && data.lokasi_kejadian !== null ? data.lokasi_kejadian : prev.lokasi_kejadian,
+      judul_ier: data.judul_ier !== undefined && data.judul_ier !== null ? data.judul_ier : prev.judul_ier,
+      tanggal_proses_ier: data.tanggal_proses_ier !== undefined ? parseDateOrNull(data.tanggal_proses_ier) ?? prev.tanggal_proses_ier : prev.tanggal_proses_ier,
+      kerugian: data.kerugian !== undefined && data.kerugian !== null ? data.kerugian.toString() : prev.kerugian,
+      kronologi: data.kronologi !== undefined && data.kronologi !== null ? data.kronologi : prev.kronologi,
+      // bidang yang selalu null (kerugian_by_case, approvals, status, notes, cara_mencegah, hrbp) dibiarkan seperti sebelumnya
+    }));
+    setMsg("Form terisi otomatis oleh AI. Silakan periksa kembali sebelum menyimpan.");
+  };
+
+  async function handleAiPrefill() {
+    if (!aiPrompt.trim()) {
+      setErr("Masukkan deskripsi sebelum meminta AI.");
+      return;
+    }
+    try {
+      setErr(null);
+      setMsg(null);
+      setAiLoading(true);
+      const json = await api.post<any>("/api/ai/prefill-case", { prompt: aiPrompt });
+      const data: AiCaseSuggestion = (json?.data ?? json) || {};
+      applyAiDataToForm(data);
+      setShowAiModal(false);
+    } catch (e: any) {
+      setErr(e?.message || "Gagal mengambil saran AI");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const persentaseBeban = useMemo(() => {
     const kerugian = parseIDR(form.kerugian) ?? 0;
@@ -191,14 +251,13 @@ export default function InputCase() {
     (async () => {
       try {
         setErr(null);
-        const [divisiCase, jenisCase, jenisKaryawan, statusProses, statusPengajuan] =
-          await Promise.all([
-            masterApi.list("divisi-case"),
-            masterApi.list("jenis-case"),
-            masterApi.list("jenis-karyawan-terlapor"),
-            masterApi.list("status-proses"),
-            masterApi.list("status-pengajuan"),
-          ]);
+        const [divisiCase, jenisCase, jenisKaryawan, statusProses, statusPengajuan] = await Promise.all([
+          masterApi.list("divisi-case"),
+          masterApi.list("jenis-case"),
+          masterApi.list("jenis-karyawan-terlapor"),
+          masterApi.list("status-proses"),
+          masterApi.list("status-pengajuan"),
+        ]);
 
         setMasters({ divisiCase, jenisCase, jenisKaryawan, statusProses, statusPengajuan });
       } catch (e: any) {
@@ -211,7 +270,7 @@ export default function InputCase() {
     if (!err) return;
     errRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [err]);
-  
+
   useEffect(() => {
     if (!msg) return;
     msgRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -219,7 +278,7 @@ export default function InputCase() {
 
   const payload: CaseCreatePayload = useMemo(() => {
     const n = (s: string) => (s ? Number(s) : null);
-    const formatDateForPayload = (date: Date | null) => (date ? normalizeDateForPayload(date.toISOString().split('T')[0]) : null);
+    const formatDateForPayload = (date: Date | null) => (date ? normalizeDateForPayload(date.toISOString().split("T")[0]) : null);
 
     return {
       divisi_case_id: n(form.divisi_case_id),
@@ -311,7 +370,7 @@ export default function InputCase() {
         kerugian_by_case: "",
 
         kronologi: "",
-        
+
         approval_gm_hcca: null,
         approval_gm_fad: null,
 
@@ -421,24 +480,12 @@ export default function InputCase() {
 
           <div className="field">
             <div className="field__label">Tanggal Lapor</div>
-            <DatePicker
-              className="input"
-              dateFormat="dd-MM-yyyy"
-              selected={form.tanggal_lapor}
-              onChange={setDate("tanggal_lapor")}
-              placeholderText="dd-mm-yyyy"
-            />
+            <DatePicker className="input" dateFormat="dd-MM-yyyy" selected={form.tanggal_lapor} onChange={setDate("tanggal_lapor")} placeholderText="dd-mm-yyyy" />
           </div>
 
           <div className="field">
             <div className="field__label">Tanggal Kejadian</div>
-            <DatePicker
-              className="input"
-              dateFormat="dd-MM-yyyy"
-              selected={form.tanggal_kejadian}
-              onChange={setDate("tanggal_kejadian")}
-              placeholderText="dd-mm-yyyy"
-            />
+            <DatePicker className="input" dateFormat="dd-MM-yyyy" selected={form.tanggal_kejadian} onChange={setDate("tanggal_kejadian")} placeholderText="dd-mm-yyyy" />
           </div>
 
           <div className="field">
@@ -453,38 +500,46 @@ export default function InputCase() {
 
           <div className="field">
             <div className="field__label">Tanggal Proses IER</div>
-            <DatePicker
-              className="input"
-              dateFormat="dd-MM-yyyy"
-              selected={form.tanggal_proses_ier}
-              onChange={setDate("tanggal_proses_ier")}
-              placeholderText="dd-mm-yyyy"
-            />
+            <DatePicker className="input" dateFormat="dd-MM-yyyy" selected={form.tanggal_proses_ier} onChange={setDate("tanggal_proses_ier")} placeholderText="dd-mm-yyyy" />
           </div>
 
           {/* MENAMBAHKAN INPUT KERUGIAN YANG SEBELUMNYA HILANG */}
           <div className="field">
             <div className="field__label">Kerugian (Rp)</div>
-            <input 
-              className="input" 
-              value={formatToIDR(form.kerugian)} 
-              onChange={handleKerugianChange} 
-              placeholder="Rp 0"
-            />
+            <input className="input" value={formatToIDR(form.kerugian)} onChange={handleKerugianChange} placeholder="Rp 0" />
           </div>
 
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <div className="field__label">Kronologi</div>
             <textarea className="input" rows={4} value={form.kronologi} onChange={set("kronologi")} />
           </div>
+        </div>
 
+        <div
+          style={{
+            margin: "16px 12px 8px",
+            padding: "16px",
+            border: "1px solid #e3e3e3",
+            borderRadius: 8,
+            background: "#f7f9fb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Prompt to Form (AI)</div>
+            <div style={{ color: "#4b5563", fontSize: "0.95rem" }}>Masukkan deskripsi singkat kasus untuk mengisi form otomatis. Data terlapor tetap diisi manual.</div>
+          </div>
+          <button className="btn btn--primary" type="button" onClick={() => setShowAiModal(true)}>
+            Gunakan AI
+          </button>
         </div>
 
         {/* UI Dinamis untuk Daftar Orang */}
         <div style={{ padding: "0 12px" }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginTop: 24, marginBottom: 12 }}>
-            Informasi Terlapor
-          </h2>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginTop: 24, marginBottom: 12 }}>Informasi Terlapor</h2>
           {persons.map((person, index) => (
             <div key={index} className="panel" style={{ marginBottom: 16, padding: 16, background: "#f9f9f9" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -498,43 +553,23 @@ export default function InputCase() {
               <div className="form-grid">
                 <div className="field">
                   <div className="field__label">Nama Terlapor</div>
-                  <input
-                    className="input"
-                    value={person.nama}
-                    onChange={(e) => handlePersonChange(index, "nama", e.target.value)}
-                  />
+                  <input className="input" value={person.nama} onChange={(e) => handlePersonChange(index, "nama", e.target.value)} />
                 </div>
                 <div className="field">
                   <div className="field__label">Lokasi Terlapor</div>
-                  <input
-                    className="input"
-                    value={person.lokasi}
-                    onChange={(e) => handlePersonChange(index, "lokasi", e.target.value)}
-                  />
+                  <input className="input" value={person.lokasi} onChange={(e) => handlePersonChange(index, "lokasi", e.target.value)} />
                 </div>
                 <div className="field">
                   <div className="field__label">Divisi Terlapor</div>
-                  <input
-                    className="input"
-                    value={person.divisi}
-                    onChange={(e) => handlePersonChange(index, "divisi", e.target.value)}
-                  />
+                  <input className="input" value={person.divisi} onChange={(e) => handlePersonChange(index, "divisi", e.target.value)} />
                 </div>
                 <div className="field">
                   <div className="field__label">Departemen Terlapor</div>
-                  <input
-                    className="input"
-                    value={person.departemen}
-                    onChange={(e) => handlePersonChange(index, "departemen", e.target.value)}
-                  />
+                  <input className="input" value={person.departemen} onChange={(e) => handlePersonChange(index, "departemen", e.target.value)} />
                 </div>
                 <div className="field">
                   <div className="field__label">Jenis Karyawan Terlapor</div>
-                  <select
-                    className="input"
-                    value={person.jenis_karyawan_terlap_id}
-                    onChange={(e) => handlePersonChange(index, "jenis_karyawan_terlap_id", e.target.value)}
-                  >
+                  <select className="input" value={person.jenis_karyawan_terlap_id} onChange={(e) => handlePersonChange(index, "jenis_karyawan_terlap_id", e.target.value)}>
                     <option value="">-- pilih --</option>
                     {masters.jenisKaryawan.map((x) => (
                       <option key={x.id} value={x.id}>
@@ -543,47 +578,25 @@ export default function InputCase() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="field">
                   <div className="field__label">Nominal Beban Karyawan</div>
-                  <input
-                    className="input"
-                    value={formatToIDR(person.nominal_beban_karyawan)}
-                    onChange={(e) =>
-                      handlePersonChange(index, "nominal_beban_karyawan", parseIDR(e.target.value)?.toString() ?? "")
-                    }
-                  />
+                  <input className="input" value={formatToIDR(person.nominal_beban_karyawan)} onChange={(e) => handlePersonChange(index, "nominal_beban_karyawan", parseIDR(e.target.value)?.toString() ?? "")} />
                 </div>
 
                 {/* INPUT PERSENTASE BARU (READ ONLY) */}
                 <div className="field">
                   <div className="field__label">Persentase Beban (%)</div>
-                  <input
-                    className="input"
-                    value={person.persentase_beban_karyawan}
-                    readOnly
-                    style={{ backgroundColor: "#e9ecef", cursor: "not-allowed" }}
-                    placeholder="Otomatis..."
-                  />
+                  <input className="input" value={person.persentase_beban_karyawan} readOnly style={{ backgroundColor: "#e9ecef", cursor: "not-allowed" }} placeholder="Otomatis..." />
                 </div>
 
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan IER</div>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    value={person.keputusan_ier}
-                    onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)}
-                  />
+                  <textarea className="input" rows={2} value={person.keputusan_ier} onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan Final</div>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    value={person.keputusan_final}
-                    onChange={(e) => handlePersonChange(index, "keputusan_final", e.target.value)}
-                  />
+                  <textarea className="input" rows={2} value={person.keputusan_final} onChange={(e) => handlePersonChange(index, "keputusan_final", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -600,25 +613,58 @@ export default function InputCase() {
         </div>
 
         {err && (
-            <div
-                ref={errRef}
-                className="alert"
-                style={{ margin: "0 12px 12px" }}
-            >
-                {err}
-            </div>
+          <div ref={errRef} className="alert" style={{ margin: "0 12px 12px" }}>
+            {err}
+          </div>
         )}
 
         {msg && (
-            <div
-                ref={msgRef}
-                className="alert alert--success"
-                style={{ margin: "0 12px 12px" }}
-            >
-                {msg}
-            </div>
+          <div ref={msgRef} className="alert alert--success" style={{ margin: "0 12px 12px" }}>
+            {msg}
+          </div>
         )}
       </div>
+
+      {showAiModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowAiModal(false);
+          }}
+        >
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <div>
+                <h2 id="ai-title" className="modal__title">
+                  Gunakan AI
+                </h2>
+                <p className="modal__subtitle">Isi deskripsi singkat kasus. AI hanya mengisi info kasus, tidak menyentuh data Terlapor.</p>
+              </div>
+            </div>
+            <div className="modal__body">
+              <label className="field__label" htmlFor="ai-prompt">
+                Deskripsi kasus
+              </label>
+              <textarea id="ai-prompt" className="input" rows={5} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="Contoh: Terdapat kasus di divisi ABC pada 2 Februari 2026..." />
+              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>
+                Catatan: Deskripsi kasus dianjurkan berisi informasi pendukung seperti divisi dan jenis kasus, tanggal lapor, tanggal kejadian, lokasi kejadian, tanggal proses, serta estimasi kerugian untuk memudahkan klasifikasi dan
+                peninjauan.
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--ghost" onClick={() => setShowAiModal(false)} disabled={aiLoading}>
+                Batal
+              </button>
+              <button className="btn btn--primary" onClick={handleAiPrefill} disabled={aiLoading}>
+                {aiLoading ? "Memproses..." : "Generate & Isi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isConfirming && (
         <div
@@ -633,7 +679,9 @@ export default function InputCase() {
           <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="modal__header">
               <div>
-                <h2 id="confirm-title" className="modal__title">Konfirmasi Data</h2>
+                <h2 id="confirm-title" className="modal__title">
+                  Konfirmasi Data
+                </h2>
                 <p className="modal__subtitle">Pastikan semua data sudah benar sebelum disimpan.</p>
               </div>
               <button className="icon-btn" onClick={() => setIsConfirming(false)} aria-label="Tutup">
