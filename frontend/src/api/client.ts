@@ -1,36 +1,58 @@
 const BASE =
-  import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
-async function request<T>(path: string, method: HttpMethod, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+interface RequestOptions {
+  responseType?: "json" | "blob" | "text";
+}
 
-  const isJson = res.headers.get("content-type")?.includes("application/json");
-  const payload = isJson ? await res.json() : await res.text();
+async function request<T>(
+  path: string, 
+  method: HttpMethod, 
+  body?: unknown, 
+  options: RequestOptions = {}
+): Promise<T> {
+  const url = `${BASE}${path}`;
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  
+  const config: RequestInit = {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  };
+
+  const res = await fetch(url, config);
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
-    if (typeof payload === "string") {
-      message = payload || message;
-    } else if (payload && typeof payload === "object") {
-      // support {error}, {message}, {detail}
-      const p: any = payload;
-      message = (p.detail || p.error || p.message || message).toString();
+    try {
+      const isJson = res.headers.get("content-type")?.includes("application/json");
+      const payload = isJson ? await res.json() : await res.text();
+      
+      if (typeof payload === "string") {
+        message = payload || message;
+      } else if (payload && typeof payload === "object") {
+        const p: any = payload;
+        message = (p.detail || p.error || p.message || message).toString();
+      }
+    } catch (e) {
+      // ignore
     }
     throw new Error(message);
   }
 
-  return payload as T;
+  if (options.responseType === "blob") {
+    return (await res.blob()) as unknown as T;
+  }
+
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  return isJson ? await res.json() : (await res.text() as unknown as T);
 }
 
-export const api = {
-  get: <T>(path: string) => request<T>(path, "GET"),
-  post: <T>(path: string, body: unknown) => request<T>(path, "POST", body),
-  put: <T>(path: string, body: unknown) => request<T>(path, "PUT", body),
-  delete: <T>(path: string) => request<T>(path, "DELETE"),
+export const client = {
+  get: <T>(path: string, options?: RequestOptions) => request<T>(path, "GET", undefined, options),
+  post: <T>(path: string, body: unknown, options?: RequestOptions) => request<T>(path, "POST", body, options),
+  put: <T>(path: string, body: unknown, options?: RequestOptions) => request<T>(path, "PUT", body, options),
+  delete: <T>(path: string, options?: RequestOptions) => request<T>(path, "DELETE", undefined, options),
 };
