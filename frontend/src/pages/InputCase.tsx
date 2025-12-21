@@ -3,7 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { casesApi, CaseCreatePayload } from "../api/cases";
 import { masterApi, MasterItem } from "../api/master";
-import { api } from "../api/client";
+import { client } from "../api/client";
 import { normalizeDateForPayload } from "../utils/date";
 
 function formatToIDR(value: string | number | null): string {
@@ -217,7 +217,7 @@ export default function InputCase() {
       setErr(null);
       setMsg(null);
       setAiLoading(true);
-      const json = await api.post<any>("/api/ai/prefill-case", { prompt: aiPrompt });
+      const json = await client.post<any>("/ai/prefill-case", { prompt: aiPrompt });
       const data: AiCaseSuggestion = (json?.data ?? json) || {};
       applyAiDataToForm(data);
       setShowAiModal(false);
