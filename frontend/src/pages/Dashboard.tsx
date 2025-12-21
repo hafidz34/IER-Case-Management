@@ -37,7 +37,7 @@ function fmtPercentage(n?: number | null): string {
   return parseFloat(n.toFixed(3)).toString();
 }
 
-function parseDateString(dateString: string | null): Date | null {
+function parseDateString(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
   const parts = dateString.split("-");
   if (parts.length === 3) {
