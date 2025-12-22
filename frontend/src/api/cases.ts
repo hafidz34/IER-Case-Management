@@ -122,7 +122,7 @@ export const casesApi = {
     return res;
   },
   
-  // Fungsi download PDF (Fitur baru)
+  // Fungsi download PDF
   downloadIerPdf: async (personId: number) => {
     const blob = await client.get<Blob>(`/pdf/cases/persons/${personId}/ier-editable`, {
       responseType: "blob",

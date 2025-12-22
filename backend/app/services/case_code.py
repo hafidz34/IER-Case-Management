@@ -8,7 +8,7 @@ from ..models import Case
 JAKARTA = ZoneInfo("Asia/Jakarta")
 
 def make_base(dt: datetime) -> str:
-    # format sesuai requirement terbaru: dd/mm/yyyy
+    # format dd/mm/yyyy
     return dt.strftime("%d/%m/%Y")
 
 def next_case_code(session) -> str:
