@@ -572,12 +572,12 @@ export default function InputCase() {
                 <div className="field">
                   <div className="field__label">Divisi Terlapor</div>
                   <select className="input" value={person.divisi} onChange={(e) => handlePersonChange(index, "divisi", e.target.value)}>
-                      <option value="">-- pilih --</option>
-                      {masters.divisiCase.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.name}
-                        </option>
-                      ))}
+                    <option value="">-- pilih --</option>
+                    {masters.divisiCase.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="field">

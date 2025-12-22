@@ -1,4 +1,4 @@
-import { client, API_BASE } from "./client";
+import { client } from "./client";
 import { MasterItem } from "./master";
 
 // --- DEFINISI TIPE DATA ---
@@ -39,12 +39,12 @@ export type CaseCreatePayload = {
 };
 
 export interface CasePersonRow {
-  divisi_name: any;
   id: number;
   case_id: number;
   person_seq: number;
   person_code: string;
   nama: string;
+  divisi_name?: string;
   lokasi?: string;
   divisi?: string;
   departemen?: string;
@@ -56,6 +56,21 @@ export interface CasePersonRow {
   nominal_beban_karyawan?: number;
   approval_gm_hcca?: string;
   approval_gm_fad?: string;
+  hasil_investigasi?: string;
+  penilaian_awal?: string;
+  fakta_investigasi?: string;
+  akar_masalah?: string;
+  status_proses_id?: number;
+  status_proses?: { id: number; name: string };
+  status_pengajuan_id?: number;
+  status_pengajuan?: { id: number; name: string };
+  tindakan_perbaikan?: string;
+  pic?: string;
+  target_selesai?: string;
+  status?: string;
+  closing_date?: string;
+  approval_by?: string;
+  total_kerugian?: number;
 }
 
 export interface CaseRow {
@@ -92,9 +107,9 @@ export interface CaseRow {
 export const casesApi = {
   list: async () => {
     const res = await client.get<{ value: CaseRow[] }>("/cases");
-    return res.value; 
+    return res.value;
   },
-  
+
   // Nama fungsi dikembalikan jadi 'create' (bukan createCase)
   // agar cocok dengan InputCase.tsx
   create: async (payload: CaseCreatePayload) => {
@@ -106,30 +121,27 @@ export const casesApi = {
     const res = await client.get<CaseRow>(`/cases/${id}`);
     return res;
   },
-  
+
   updateCase: async (id: number, payload: any) => {
     const res = await client.put<CaseRow>(`/cases/${id}`, payload);
     return res;
   },
-  
+
   updatePerson: async (id: number, payload: any) => {
     const res = await client.put<CasePersonRow>(`/cases/persons/${id}`, payload);
     return res;
   },
-  
+
   deleteCase: async (id: number) => {
     const res = await client.delete(`/cases/${id}`);
     return res;
   },
-  
-  // Fungsi download PDF
+
+  // Fungsi download PDF (Fitur baru)
   downloadIerPdf: async (personId: number) => {
-    const blob = await client.get<Blob>(`/pdf/cases/persons/${personId}/ier-editable`, {
+    const blob = await client.get<Blob>(`/cases/persons/${personId}/download-ier`, {
       responseType: "blob",
     });
     return blob;
   },
-
-  // Direct URL for browser download/open
-  getIerPdfUrl: (personId: number) => `${API_BASE}/pdf/cases/persons/${personId}/ier-editable`,
 };

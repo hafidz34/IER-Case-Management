@@ -1,5 +1,4 @@
-export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
+const BASE = import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -7,15 +6,10 @@ interface RequestOptions {
   responseType?: "json" | "blob" | "text";
 }
 
-async function request<T>(
-  path: string, 
-  method: HttpMethod, 
-  body?: unknown, 
-  options: RequestOptions = {}
-): Promise<T> {
-  const url = `${API_BASE}${path}`;
+async function request<T>(path: string, method: HttpMethod, body?: unknown, options: RequestOptions = {}): Promise<T> {
+  const url = `${BASE}${path}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
-  
+
   const config: RequestInit = {
     method,
     headers,
@@ -29,7 +23,7 @@ async function request<T>(
     try {
       const isJson = res.headers.get("content-type")?.includes("application/json");
       const payload = isJson ? await res.json() : await res.text();
-      
+
       if (typeof payload === "string") {
         message = payload || message;
       } else if (payload && typeof payload === "object") {
@@ -47,7 +41,7 @@ async function request<T>(
   }
 
   const isJson = res.headers.get("content-type")?.includes("application/json");
-  return isJson ? await res.json() : (await res.text() as unknown as T);
+  return isJson ? await res.json() : ((await res.text()) as unknown as T);
 }
 
 export const client = {
