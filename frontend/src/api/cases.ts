@@ -121,7 +121,7 @@ export const casesApi = {
     return res;
   },
   
-  // Fungsi download PDF (Fitur baru)
+  // Fungsi download PDF
   downloadIerPdf: async (personId: number) => {
     const blob = await client.get<Blob>(`/cases/persons/${personId}/download-ier`, {
       responseType: "blob",

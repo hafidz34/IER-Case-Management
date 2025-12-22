@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, date
 from operator import index
 from zoneinfo import ZoneInfo
@@ -7,14 +8,14 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Optional, Dict
 
 # Import library Flask dan utilitas
-from flask import Blueprint, jsonify, request, render_template, make_response
+from flask import Blueprint, jsonify, request, render_template, make_response, current_app
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, subqueryload
 
 # Import library PDF
 from io import BytesIO
-from xhtml2pdf import pisa
+from weasyprint import HTML
 
 from ..extensions import db
 from ..models import Case, CasePerson
@@ -388,10 +389,10 @@ def delete_case(case_id):
     if not case:
         return jsonify({"error": "Not found", "detail": f"Case dengan ID {case_id} tidak ditemukan."}), 404
     try:
-        # PENTING: Hapus anak-anaknya (persons) dulu agar tidak error Foreign Key
+        # Hapus children (persons) dulu agar tidak error Foreign Key
         CasePerson.query.filter_by(case_id=case_id).delete()
         
-        # Baru hapus bapaknya (case)
+        # Baru hapus parent (case)
         db.session.delete(case)
         db.session.commit()
         return jsonify({"status": "success", "id": case_id}), 200
@@ -400,7 +401,7 @@ def delete_case(case_id):
         print(f"Error deleting case {case_id}: {e}") 
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
-# ----- ROUTE BARU DOWNLOAD PDF -----
+# Route Download IER PDF
 @bp.get("/persons/<int:person_id>/download-ier")
 def download_ier_pdf(person_id):
     # 1. Query Data
@@ -425,37 +426,49 @@ def download_ier_pdf(person_id):
     if case_data.tanggal_proses_ier:
         case_data.tanggal_proses_ier_str = fmt_date(case_data.tanggal_proses_ier)
     
-    # Format field text area agar baris baru terbaca di HTML/PDF
-    # Kita attach attribute sementara ke object (di memori saja, tidak save ke DB)
     case_data.kronologi_html = nl2br(case_data.kronologi)
     person.keputusan_ier_html = nl2br(person.keputusan_ier)
     person.keputusan_final_html = nl2br(person.keputusan_final)
 
-    # 4. Render HTML
+    # 4. Path Gambar Absolut untuk Logo
+    # Path: backend/app/static/images/spil.png
+    try:
+        filename = 'spil.png' 
+        # current_app.root_path mengarah ke folder 'backend/app'
+        image_folder = os.path.join(current_app.root_path, 'static', 'images')
+        image_path = os.path.join(image_folder, filename)
+        
+        logo_uri = ""
+        if os.path.exists(image_path):
+            # WeasyPrint butuh format URI (file://...)
+            if os.name == 'nt': # Windows
+                # Replace backslash dengan slash, tambahkan file:///
+                logo_uri = 'file:///' + image_path.replace('\\', '/')
+            else: # Linux/Mac
+                logo_uri = 'file://' + image_path
+        else:
+            print(f"Warning: Gambar logo tidak ditemukan di {image_path}")
+
+    except Exception as e:
+        print(f"Error menyiapkan path gambar: {e}")
+        logo_uri = ""
+
+    # 5. Render HTML
     try:
         html_string = render_template(
             "ier_form.html",
             person=person,
-            case=case_data
+            case=case_data,
+            logo_uri=logo_uri # Kirim URI gambar ke template
         )
 
-        # 5. Convert ke PDF via xhtml2pdf
-        pdf_output = BytesIO()
-        pisa_status = pisa.CreatePDF(
-            html_string, 
-            dest=pdf_output
-        )
+        # 6. Convert ke PDF via WeasyPrint
+        pdf_data = HTML(string=html_string).write_pdf()
 
-        if pisa_status.err:
-            return jsonify({"error": "PDF Error", "detail": "Gagal render PDF"}), 500
-
-        pdf_data = pdf_output.getvalue()
-
-        # 6. Return Response
+        # 7. Return Response
         response = make_response(pdf_data)
         response.headers['Content-Type'] = 'application/pdf'
         
-        # Nama file
         safe_filename = person.person_code.replace("/", "-")
         response.headers['Content-Disposition'] = f'inline; filename=IER_{safe_filename}.pdf'
         
