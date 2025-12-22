@@ -236,10 +236,7 @@ function EditCaseModal({
           }}
         >
           <div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Prompt to Form (AI)</div>
-            <div style={{ color: "#4b5563", fontSize: "0.95rem" }}>
-              Masukkan deskripsi kasus, AI akan isi kerugian, status, notes, cara mencegah, dan HRBP.
-            </div>
+            <div style={{ color: "#4b5563", fontSize: "0.95rem" }}>Masukkan deskripsi kasus, AI akan isi kerugian, status, notes, cara mencegah, dan HRBP.</div>
           </div>
           <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAiModal(true)}>
             Gunakan AI
@@ -263,9 +260,7 @@ function EditCaseModal({
                 <h2 id="ai-case-title" className="modal__title">
                   Gunakan AI
                 </h2>
-                <p className="modal__subtitle">
-                  Isi deskripsi kasus singkat. AI akan mengisi kerugian, status proses/pengajuan, notes, cara mencegah, dan HRBP (jika disebut).
-                </p>
+                <p className="modal__subtitle">Isi deskripsi kasus singkat. AI akan mengisi kerugian, status proses/pengajuan, notes, cara mencegah, dan HRBP (jika disebut).</p>
               </div>
             </div>
             <div className="modal__body">
@@ -280,9 +275,7 @@ function EditCaseModal({
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="Contoh: Kerugian 9 juta, status proses approval GM HC&CA, pengajuan open, catatan pencegahan, HRBP: Rina."
               />
-              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>
-                Sertakan kerugian, status, catatan, dan HRBP agar hasil lebih akurat.
-              </div>
+              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>Sertakan kerugian, status, catatan, dan HRBP agar hasil lebih akurat.</div>
             </div>
             <div className="modal__footer">
               <button className="btn btn--ghost" onClick={() => setShowAiModal(false)} disabled={aiLoading}>
@@ -509,9 +502,7 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="Contoh: Beban kerugian 5 juta karena kelalaian, disetujui GM HC&CA tanggal 12-02-2026..."
               />
-              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>
-                Catatan: Sertakan nominal beban, keputusan IER/final, dan tanggal approval bila ada agar hasil lebih akurat.
-              </div>
+              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>Catatan: Sertakan nominal beban, keputusan IER/final, dan tanggal approval bila ada agar hasil lebih akurat.</div>
             </div>
             <div className="modal__footer">
               <button className="btn btn--ghost" onClick={() => setShowAiModal(false)} disabled={aiLoading}>
@@ -528,15 +519,7 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
   );
 }
 
-function CaseDetailModal({
-  caseRow,
-  masters,
-  onClose,
-}: {
-  caseRow: CaseRow;
-  masters: { divisiCase: MasterItem[] };
-  onClose: () => void;
-}) {
+function CaseDetailModal({ caseRow, masters, onClose }: { caseRow: CaseRow; masters: { divisiCase: MasterItem[] }; onClose: () => void }) {
   const divisiDisplay = (p: CasePersonRow) => {
     if (p.divisi_name) return p.divisi_name;
     const raw = p.divisi ?? "";
@@ -747,7 +730,8 @@ export default function Dashboard() {
   }
 
   function handleSavePerson(updatedPerson: CasePersonRow) {
-    setRows(rows.map((r) => {
+    setRows(
+      rows.map((r) => {
         if (r.id === updatedPerson.case_id) {
           return {
             ...r,
@@ -772,14 +756,12 @@ export default function Dashboard() {
 
   function getStatusColor(status: string): string {
     const s = status.toLowerCase();
-    if (s.includes("selesai") || s.includes("closed") || s.includes("finish")) return "#22c55e"; 
-    if (s.includes("proses") || s.includes("ongoing") || s.includes("jalan")) return "#eab308"; 
-    if (s.includes("batal") || s.includes("cancel") || s.includes("reject")) return "#ef4444"; 
-    if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6"; 
-    return "#64748b"; 
+    if (s.includes("selesai") || s.includes("closed") || s.includes("finish")) return "#22c55e";
+    if (s.includes("proses") || s.includes("ongoing") || s.includes("jalan")) return "#eab308";
+    if (s.includes("batal") || s.includes("cancel") || s.includes("reject")) return "#ef4444";
+    if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6";
+    return "#64748b";
   }
-
-
 
   return (
     <div>
@@ -888,16 +870,14 @@ export default function Dashboard() {
                         <ul className="terlapor-list">
                           {r.persons.map((p) => (
                             <li key={p.id} className="terlapor-item">
-                              <div className="terlapor-name">{p.nama} <span style={{fontSize: '0.8em', color: '#666', marginLeft: '0px'}}>({p.person_code})</span></div>
-                              <div style={{ display: 'flex', gap: '4px' }}>
+                              <div className="terlapor-name">
+                                {p.nama} <span style={{ fontSize: "0.8em", color: "#666", marginLeft: "0px" }}>({p.person_code})</span>
+                              </div>
+                              <div style={{ display: "flex", gap: "4px" }}>
                                 <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
                                   Edit Keputusan
                                 </button>
-                                <button 
-                                  className="btn btn--sm btn--primary" 
-                                  title="Download IER Form PDF"
-                                  onClick={() => handleViewPdf(p.id)}
-                                >
+                                <button className="btn btn--sm btn--primary" title="Download IER Form PDF" onClick={() => handleViewPdf(p.id)}>
                                   PDF
                                 </button>
                               </div>
@@ -924,20 +904,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {editingCase && (
-        <EditCaseModal
-          caseRow={editingCase}
-          masters={masters}
-          onClose={() => setEditingCase(null)}
-          onSave={handleSaveCase}
-          onDelete={handleDeleteCase}
-        />
-      )}
+      {editingCase && <EditCaseModal caseRow={editingCase} masters={masters} onClose={() => setEditingCase(null)} onSave={handleSaveCase} onDelete={handleDeleteCase} />}
 
       {editingPerson && <EditPersonModal person={editingPerson} caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null} onClose={() => setEditingPerson(null)} onSave={handleSavePerson} />}
 
-      {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />} 
-
+      {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />}
     </div>
   );
 }
