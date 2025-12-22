@@ -323,3 +323,72 @@ def prefill_person():
     }
 
     return jsonify({"prompt": prompt, "data": suggestion})
+
+def call_llm_suggestion(data: dict) -> dict:
+    kronologi = data.get("kronologi", "-")
+    kerugian = data.get("kerugian", "0")
+    jenis_case = data.get("jenis_case", "-")
+    
+    instruction = f"""
+    PERAN:
+    Anda adalah spesialis Hubungan Industrial (Industrial Relations). Tugas Anda adalah memberikan rekomendasi keputusan sanksi dan pencegahan berdasarkan fakta kasus.
+
+    DATA KASUS:
+    - Jenis Pelanggaran: {jenis_case}
+    - Total Kerugian: Rp {kerugian}
+    - Kronologi Kejadian: {kronologi}
+
+    TUGAS:
+    Analisis data di atas dan berikan output JSON SAJA dengan format berikut:
+
+    FORMAT JSON WAJIB:
+    {{
+    "saran_keputusan": "Sebutkan jenis sanksi (misal: SP1/SP2/SP3/PHK/Pembinaan) dan alasannya secara singkat formal.",
+    "saran_pencegahan": "Saran perbaikan prosedur atau sistem agar tidak terulang."
+    }}
+
+    ATURAN:
+    - Gunakan bahasa Indonesia yang formal.
+    - Output HARUS JSON valid.
+    - Jangan sertakan markdown atau komentar lain.
+    """
+
+    payload = {
+        "Content-Type": "application/json",
+        "messages": [{"role": "user", "content": instruction}],
+        "temperature": 0.3, # Sedikit kreatif untuk saran, tapi tetap terarah
+    }
+
+    try:
+        response = requests.post(LLM_URL, json=payload, timeout=20)
+    except Exception as exc:  
+        logging.warning("LLM suggestion request failed: %s", exc)
+        return {}
+
+    if response.status_code != 200:
+        logging.info(
+            "LLM request failed with status code %s, response: %s",
+            response.status_code,
+            response.text,
+        )
+        return {}
+
+    content = response.json()["choices"][0]["message"]["content"]
+    parsed = extract_json(content)
+    return parsed if isinstance(parsed, dict) else {}
+
+
+@bp.post("/suggest-decision")
+def suggest_decision():
+    # Ambil data dari body request (dikirim dari frontend)
+    body = request.get_json(silent=True) or {}
+    
+    # Panggil fungsi AI baru
+    llm_result = call_llm_suggestion(body)
+    
+    suggestion = {
+        "saran_keputusan": llm_result.get("saran_keputusan"),
+        "saran_pencegahan": llm_result.get("saran_pencegahan")
+    }
+
+    return jsonify({"input": body, "data": suggestion})
