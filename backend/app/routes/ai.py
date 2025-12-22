@@ -67,7 +67,7 @@ def call_llm(prompt: str) -> dict:
     {status_pengajuan_hint}
 
     ATURAN KRONOLOGI:
-    - Tulis ulang kronologi dengan bahasa formal, jelas, dan kronologis
+    - Tulis ulang kronologi dengan bahasa formal, jelas, dan ringkas dengan poin-poin 1,2,3,4...
     - Fokus pada urutan kejadian, aktor, dan dampak
     - Jangan menyalin kalimat mentah dari teks
     - Jangan menambahkan asumsi baru
