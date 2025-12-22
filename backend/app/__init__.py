@@ -9,6 +9,7 @@ from .routes.health import bp as health_bp
 from .routes.master import bp as master_bp
 from .routes.cases import bp as cases_bp
 from .routes.ai import bp as ai_bp
+from .routes.pdf_ier import bp as pdf_ier_bp
 
 def create_app():
     load_dotenv()  # load backend/.env
@@ -28,5 +29,6 @@ def create_app():
     app.register_blueprint(master_bp)
     app.register_blueprint(cases_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(pdf_ier_bp)
 
     return app

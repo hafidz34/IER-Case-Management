@@ -716,7 +716,7 @@ export default function Dashboard() {
         masterApi.list("status-proses"),
         masterApi.list("status-pengajuan"),
         masterApi.list("divisi-case"),
-        fetch("/api/cases/stats").then((res) => (res.ok ? res.json() : null)).catch(() => null),
+        client.get<CaseStats>("/cases/stats").catch(() => null),
       ]);
       setRows(data);
       setMasters({ statusProses, statusPengajuan, divisiCase });
@@ -765,24 +765,9 @@ export default function Dashboard() {
     load();
   }
 
-  async function handleDownloadPdf(personId: number, personCode: string) {
-    try {
-      setLoading(true);
-      const blob = await casesApi.downloadIerPdf(personId);
-      if (!blob || blob.size === 0) throw new Error("File PDF kosong.");
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement("a");
-      link.href = url;
-      const safeName = personCode.replace(/\//g, "-");
-      link.setAttribute("download", `IER_${safeName}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-    } catch (e: any) {
-      alert("Gagal download PDF: " + (e?.message || "Server Error"));
-    } finally {
-      setLoading(false);
-    }
+  function handleViewPdf(personId: number) {
+    const url = casesApi.getIerPdfUrl(personId);
+    window.open(url, "_blank");
   }
 
   function getStatusColor(status: string): string {
@@ -793,6 +778,8 @@ export default function Dashboard() {
     if (s.includes("baru") || s.includes("new") || s.includes("open")) return "#3b82f6"; 
     return "#64748b"; 
   }
+
+
 
   return (
     <div>
@@ -909,7 +896,7 @@ export default function Dashboard() {
                                 <button 
                                   className="btn btn--sm btn--primary" 
                                   title="Download IER Form PDF"
-                                  onClick={() => handleDownloadPdf(p.id, p.person_code)}
+                                  onClick={() => handleViewPdf(p.id)}
                                 >
                                   PDF
                                 </button>
@@ -949,7 +936,8 @@ export default function Dashboard() {
 
       {editingPerson && <EditPersonModal person={editingPerson} caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null} onClose={() => setEditingPerson(null)} onSave={handleSavePerson} />}
 
-      {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />}
+      {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />} 
+
     </div>
   );
 }

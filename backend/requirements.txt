@@ -8,3 +8,4 @@ flask-cors==4.0.1
 tzdata
 xhtml2pdf==0.2.16
 requests
+pypdf==4.1.0
