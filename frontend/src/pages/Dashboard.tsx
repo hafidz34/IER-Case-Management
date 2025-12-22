@@ -888,7 +888,7 @@ export default function Dashboard() {
                         <ul className="terlapor-list">
                           {r.persons.map((p) => (
                             <li key={p.id} className="terlapor-item">
-                              <div className="terlapor-name">{p.nama} <span style={{fontSize: '0.8em', color: '#666', marginLeft: '6px'}}>({p.person_code})</span></div>
+                              <div className="terlapor-name">{p.nama} <span style={{fontSize: '0.8em', color: '#666', marginLeft: '0px'}}>({p.person_code})</span></div>
                               <div style={{ display: 'flex', gap: '4px' }}>
                                 <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
                                   Edit Keputusan
