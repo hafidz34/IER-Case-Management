@@ -429,9 +429,19 @@ export default function InputCase() {
         return;
       }
 
-      if (persons.some((p) => !p.nama.trim())) {
-        setErr("Nama Terlapor wajib diisi untuk setiap orang.");
-        return;
+      for (const [i, p] of persons.entries()) {
+        if (!p.nama.trim()) {
+          setErr(`Nama Terlapor #${i + 1} wajib diisi.`);
+          return;
+        }
+        if (!p.divisi.trim()) {
+          setErr(`Divisi Terlapor #${i + 1} wajib dipilih.`);
+          return;
+        }
+        if (!p.jenis_karyawan_terlap_id.trim()) {
+          setErr(`Jenis Karyawan Terlapor #${i + 1} wajib dipilih.`);
+          return;
+        }
       }
 
       setIsConfirming(true);
@@ -561,7 +571,14 @@ export default function InputCase() {
                 </div>
                 <div className="field">
                   <div className="field__label">Divisi Terlapor</div>
-                  <input className="input" value={person.divisi} onChange={(e) => handlePersonChange(index, "divisi", e.target.value)} />
+                  <select className="input" value={person.divisi} onChange={(e) => handlePersonChange(index, "divisi", e.target.value)}>
+                      <option value="">-- pilih --</option>
+                      {masters.divisiCase.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div className="field">
                   <div className="field__label">Departemen Terlapor</div>

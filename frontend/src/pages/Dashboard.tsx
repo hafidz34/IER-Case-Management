@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { casesApi, CaseRow, CasePersonRow } from "../api/cases";
 import { displayDateOrDash } from "../utils/date";
 import { masterApi, MasterItem } from "../api/master";
+import { client } from "../api/client";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Modal from "../components/Modal";
@@ -81,6 +82,10 @@ function EditCaseModal({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiInfo, setAiInfo] = useState<string | null>(null);
 
   async function handleSave() {
     setLoading(true);
@@ -108,6 +113,16 @@ function EditCaseModal({
     setShowDeleteConfirm(true);
   }
 
+  function applyAiCaseData(data: any) {
+    setAiInfo("Form terisi otomatis oleh AI. Silakan periksa kembali sebelum menyimpan.");
+    setKerugian(data.kerugian?.toString() ?? kerugian);
+    setStatusProsesId(data.status_proses_id?.toString() ?? statusProsesId);
+    setStatusPengajuanId(data.status_pengajuan_id?.toString() ?? statusPengajuanId);
+    setNotes(data.notes ?? notes);
+    setCaraMencegah(data.cara_mencegah ?? caraMencegah);
+    setHrbp(data.hrbp ?? hrbp);
+  }
+
   async function confirmDelete() {
     setShowDeleteConfirm(false);
     setLoading(true);
@@ -120,6 +135,27 @@ function EditCaseModal({
       setErr(e?.message || "Gagal menghapus kasus");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePrefillWithAi() {
+    if (!aiPrompt.trim()) {
+      setErr("Masukkan deskripsi sebelum meminta AI.");
+      return;
+    }
+    setAiLoading(true);
+    setErr(null);
+    try {
+      const result = await client.post<any>("/ai/prefill-case", { prompt: aiPrompt });
+      const data = result?.data ?? result;
+
+      applyAiCaseData(data);
+      setShowAiModal(false);
+      setAiPrompt("");
+    } catch (e: any) {
+      setErr(e?.message || "Gagal memuat prefill AI");
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -143,6 +179,8 @@ function EditCaseModal({
         }
       >
         {err && <div className="alert">{err}</div>}
+        {aiInfo && <div className="alert alert--success">{aiInfo}</div>}
+
         <div className="form-grid">
           <div className="field">
             <div className="field__label">Kerugian</div>
@@ -183,7 +221,80 @@ function EditCaseModal({
             <input className="input" value={hrbp} onChange={(e) => setHrbp(e.target.value)} />
           </div>
         </div>
+
+        <div
+          style={{
+            margin: "0 0 12px",
+            padding: "12px",
+            border: "1px solid #e3e3e3",
+            borderRadius: 10,
+            background: "#f7f9fb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Prompt to Form (AI)</div>
+            <div style={{ color: "#4b5563", fontSize: "0.95rem" }}>
+              Masukkan deskripsi kasus, AI akan isi kerugian, status, notes, cara mencegah, dan HRBP.
+            </div>
+          </div>
+          <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAiModal(true)}>
+            Gunakan AI
+          </button>
+        </div>
       </Modal>
+
+      {showAiModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-case-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowAiModal(false);
+          }}
+        >
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <div>
+                <h2 id="ai-case-title" className="modal__title">
+                  Gunakan AI
+                </h2>
+                <p className="modal__subtitle">
+                  Isi deskripsi kasus singkat. AI akan mengisi kerugian, status proses/pengajuan, notes, cara mencegah, dan HRBP (jika disebut).
+                </p>
+              </div>
+            </div>
+            <div className="modal__body">
+              <label className="field__label" htmlFor="ai-case-prompt">
+                Deskripsi kasus
+              </label>
+              <textarea
+                id="ai-case-prompt"
+                className="input"
+                rows={5}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Contoh: Kerugian 9 juta, status proses approval GM HC&CA, pengajuan open, catatan pencegahan, HRBP: Rina."
+              />
+              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>
+                Sertakan kerugian, status, catatan, dan HRBP agar hasil lebih akurat.
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--ghost" onClick={() => setShowAiModal(false)} disabled={aiLoading}>
+                Batal
+              </button>
+              <button className="btn btn--primary" onClick={handlePrefillWithAi} disabled={aiLoading || !aiPrompt.trim()}>
+                {aiLoading ? "Memproses..." : "Generate & Isi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <Modal
@@ -218,6 +329,10 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
   const [approvalFad, setApprovalFad] = useState<Date | null>(parseDateString(person.approval_gm_fad));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiInfo, setAiInfo] = useState<string | null>(null);
 
   const [persentaseBeban, setPersentaseBeban] = useState<number | null>(person.persentase_beban_karyawan ?? null);
 
@@ -239,7 +354,20 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
     setApprovalHcca(parseDateString(person.approval_gm_hcca));
     setApprovalFad(parseDateString(person.approval_gm_fad));
     setPersentaseBeban(person.persentase_beban_karyawan ?? null);
+    setAiInfo(null);
+    setAiPrompt("");
+    setShowAiModal(false);
   }, [person]);
+
+  function applyAiPersonData(data: any) {
+    setAiInfo("Form terisi otomatis oleh AI. Silakan periksa kembali sebelum menyimpan.");
+    setKeputusanIer(data.keputusan_ier ?? keputusanIer);
+    setKeputusanFinal(data.keputusan_final ?? keputusanFinal);
+    setNominalBeban(data.nominal_beban_karyawan?.toString() ?? nominalBeban);
+    setPersentaseBeban(data.persentase_beban_karyawan ?? persentaseBeban);
+    setApprovalHcca(parseDateString(data.approval_gm_hcca) ?? approvalHcca);
+    setApprovalFad(parseDateString(data.approval_gm_fad) ?? approvalFad);
+  }
 
   async function handleSave() {
     setLoading(true);
@@ -263,53 +391,164 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
     }
   }
 
+  async function handlePrefillWithAi() {
+    if (!aiPrompt.trim()) {
+      setErr("Masukkan deskripsi sebelum meminta AI.");
+      return;
+    }
+    setAiLoading(true);
+    setErr(null);
+    try {
+      const result = await client.post<any>("/ai/prefill-person", { prompt: aiPrompt });
+      const data = result?.data ?? result;
+      applyAiPersonData(data);
+      setShowAiModal(false);
+      setAiPrompt("");
+    } catch (e: any) {
+      setErr(e?.message || "Gagal memuat prefill AI");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   return (
-    <Modal
-      title={`Edit Keputusan: ${person.nama}`}
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn btn--ghost" onClick={onClose}>
-            Batal
+    <>
+      <Modal
+        title={`Edit Keputusan: ${person.nama}`}
+        onClose={onClose}
+        footer={
+          <>
+            <button className="btn btn--ghost" onClick={onClose}>
+              Batal
+            </button>
+            <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
+              {loading ? "Menyimpan..." : "Simpan"}
+            </button>
+          </>
+        }
+      >
+        {err && <div className="alert">{err}</div>}
+        {aiInfo && <div className="alert alert--success">{aiInfo}</div>}
+        <div className="form-grid">
+          <div className="field">
+            <div className="field__label">Nominal Beban Karyawan</div>
+            <input className="input" value={formatToIDR(nominalBeban)} onChange={(e) => setNominalBeban(parseIDR(e.target.value)?.toString() ?? "")} />
+          </div>
+          <div className="field">
+            <div className="field__label">Persentase Beban Karyawan</div>
+            <input className="input" value={`${fmtPercentage(persentaseBeban)}%`} readOnly />
+          </div>
+          <div className="field">
+            <div className="field__label">Approval GM HC&CA</div>
+            <DatePicker className="input" selected={approvalHcca} onChange={(date) => setApprovalHcca(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
+          </div>
+          <div className="field">
+            <div className="field__label">Approval GM FAD</div>
+            <DatePicker className="input" selected={approvalFad} onChange={(date) => setApprovalFad(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <div className="field__label">Keputusan IER</div>
+            <textarea className="input" value={keputusanIer} onChange={(e) => setKeputusanIer(e.target.value)} />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <div className="field__label">Keputusan Final</div>
+            <textarea className="input" value={keputusanFinal} onChange={(e) => setKeputusanFinal(e.target.value)} />
+          </div>
+        </div>
+        <div
+          style={{
+            margin: "0 0 12px",
+            padding: "12px",
+            border: "1px solid #e3e3e3",
+            borderRadius: 10,
+            background: "#f7f9fb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Prompt to Form (AI)</div>
+            <div style={{ color: "#4b5563", fontSize: "0.95rem" }}>Masukkan deskripsi keputusan, AI akan prefill beban & keputusan.</div>
+          </div>
+          <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAiModal(true)}>
+            Gunakan AI
           </button>
-          <button className="btn btn--primary" onClick={handleSave} disabled={loading}>
-            {loading ? "Menyimpan..." : "Simpan"}
-          </button>
-        </>
-      }
-    >
-      {err && <div className="alert">{err}</div>}
-      <div className="form-grid">
-        <div className="field">
-          <div className="field__label">Nominal Beban Karyawan</div>
-          <input className="input" value={formatToIDR(nominalBeban)} onChange={(e) => setNominalBeban(parseIDR(e.target.value)?.toString() ?? "")} />
         </div>
-        <div className="field">
-          <div className="field__label">Persentase Beban Karyawan</div>
-          <input className="input" value={`${fmtPercentage(persentaseBeban)}%`} readOnly />
+      </Modal>
+
+      {showAiModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-person-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowAiModal(false);
+          }}
+        >
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <div>
+                <h2 id="ai-person-title" className="modal__title">
+                  Gunakan AI
+                </h2>
+                <p className="modal__subtitle">Isi deskripsi keputusan singkat. AI akan mengisi keputusan & beban karyawan.</p>
+              </div>
+            </div>
+            <div className="modal__body">
+              <label className="field__label" htmlFor="ai-person-prompt">
+                Deskripsi keputusan
+              </label>
+              <textarea
+                id="ai-person-prompt"
+                className="input"
+                rows={5}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Contoh: Beban kerugian 5 juta karena kelalaian, disetujui GM HC&CA tanggal 12-02-2026..."
+              />
+              <div style={{ marginTop: 8, fontSize: "0.9rem", color: "#555" }}>
+                Catatan: Sertakan nominal beban, keputusan IER/final, dan tanggal approval bila ada agar hasil lebih akurat.
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--ghost" onClick={() => setShowAiModal(false)} disabled={aiLoading}>
+                Batal
+              </button>
+              <button className="btn btn--primary" onClick={handlePrefillWithAi} disabled={aiLoading || !aiPrompt.trim()}>
+                {aiLoading ? "Memproses..." : "Generate & Isi"}
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="field">
-          <div className="field__label">Approval GM HC&CA</div>
-          <DatePicker className="input" selected={approvalHcca} onChange={(date) => setApprovalHcca(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
-        </div>
-        <div className="field">
-          <div className="field__label">Approval GM FAD</div>
-          <DatePicker className="input" selected={approvalFad} onChange={(date) => setApprovalFad(date)} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" />
-        </div>
-        <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <div className="field__label">Keputusan IER</div>
-          <textarea className="input" value={keputusanIer} onChange={(e) => setKeputusanIer(e.target.value)} />
-        </div>
-        <div className="field" style={{ gridColumn: "1 / -1" }}>
-          <div className="field__label">Keputusan Final</div>
-          <textarea className="input" value={keputusanFinal} onChange={(e) => setKeputusanFinal(e.target.value)} />
-        </div>
-      </div>
-    </Modal>
+      )}
+    </>
   );
 }
 
-function CaseDetailModal({ caseRow, onClose }: { caseRow: CaseRow; onClose: () => void }) {
+function CaseDetailModal({
+  caseRow,
+  masters,
+  onClose,
+}: {
+  caseRow: CaseRow;
+  masters: { divisiCase: MasterItem[] };
+  onClose: () => void;
+}) {
+  const divisiDisplay = (p: CasePersonRow) => {
+    if (p.divisi_name) return p.divisi_name;
+    const raw = p.divisi ?? "";
+    if (!raw) return "-";
+    const n = Number(raw);
+    if (Number.isFinite(n)) {
+      const found = masters.divisiCase.find((d) => d.id === n);
+      if (found) return found.name;
+    }
+    return raw;
+  };
+
   return (
     <Modal
       title={`Detail Case: ${caseRow.case_code}`}
@@ -360,6 +599,8 @@ function CaseDetailModal({ caseRow, onClose }: { caseRow: CaseRow; onClose: () =
           <div key={p.id} className="summary-grid" style={{ marginBottom: 12, borderBottom: "1px solid #eee", paddingBottom: 12 }}>
             <div className="k">Nama</div>
             <div className="v">{p.nama}</div>
+            <div className="k">Divisi Terlapor</div>
+            <div className="v">{divisiDisplay(p)}</div>
             <div className="k">Jenis Karyawan</div>
             <div className="v">{p.jenis_karyawan_terlapor?.name ?? "-"}</div>
             <div className="k">Nominal Beban</div>
@@ -708,7 +949,7 @@ export default function Dashboard() {
 
       {editingPerson && <EditPersonModal person={editingPerson} caseKerugian={rows.find((r) => r.id === editingPerson.case_id)?.kerugian ?? null} onClose={() => setEditingPerson(null)} onSave={handleSavePerson} />}
 
-      {viewingCase && <CaseDetailModal caseRow={viewingCase} onClose={() => setViewingCase(null)} />}
+      {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />}
     </div>
   );
 }
