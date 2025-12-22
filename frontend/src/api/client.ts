@@ -1,4 +1,4 @@
-const BASE =
+export const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
@@ -13,7 +13,7 @@ async function request<T>(
   body?: unknown, 
   options: RequestOptions = {}
 ): Promise<T> {
-  const url = `${BASE}${path}`;
+  const url = `${API_BASE}${path}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   
   const config: RequestInit = {

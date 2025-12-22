@@ -1,4 +1,4 @@
-import { client } from "./client";
+import { client, API_BASE } from "./client";
 import { MasterItem } from "./master";
 
 // --- DEFINISI TIPE DATA ---
@@ -39,6 +39,7 @@ export type CaseCreatePayload = {
 };
 
 export interface CasePersonRow {
+  divisi_name: any;
   id: number;
   case_id: number;
   person_seq: number;
@@ -123,9 +124,12 @@ export const casesApi = {
   
   // Fungsi download PDF
   downloadIerPdf: async (personId: number) => {
-    const blob = await client.get<Blob>(`/cases/persons/${personId}/download-ier`, {
+    const blob = await client.get<Blob>(`/pdf/cases/persons/${personId}/ier-editable`, {
       responseType: "blob",
     });
     return blob;
   },
+
+  // Direct URL for browser download/open
+  getIerPdfUrl: (personId: number) => `${API_BASE}/pdf/cases/persons/${personId}/ier-editable`,
 };

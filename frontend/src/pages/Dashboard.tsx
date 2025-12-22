@@ -655,7 +655,7 @@ export default function Dashboard() {
         masterApi.list("status-proses"),
         masterApi.list("status-pengajuan"),
         masterApi.list("divisi-case"),
-        fetch("/api/cases/stats").then((res) => (res.ok ? res.json() : null)).catch(() => null),
+        client.get<CaseStats>("/cases/stats").catch(() => null),
       ]);
       setRows(data);
       setMasters({ statusProses, statusPengajuan, divisiCase });
@@ -717,7 +717,10 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }
+//   function handleViewPdf(personId: number) {
+//     const url = casesApi.getIerPdfUrl(personId);
+//     window.open(url, "_blank");
+//   }
 
   function getStatusColor(status: string): string {
     const s = status.toLowerCase();
@@ -749,6 +752,8 @@ export default function Dashboard() {
     const color = statusText ? getStatusColor(statusText) : "#64748b";
     return { label, color };
   }
+
+
 
   return (
     <div>
@@ -898,9 +903,19 @@ export default function Dashboard() {
                                   Edit Keputusan
                                 </button>
                                 <button className="btn btn--sm btn--primary" title="Download IER Form PDF" onClick={() => handleDownloadPdf(p.id, p.person_code)}>
+<!--                               <div className="terlapor-name">{p.nama} <span style={{fontSize: '0.8em', color: '#666', marginLeft: '0px'}}>({p.person_code})</span></div>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button className="btn btn--sm btn--outline" onClick={() => setEditingPerson(p)}>
+                                  Edit Keputusan
+                                </button>
+                                <button 
+                                  className="btn btn--sm btn--primary" 
+                                  title="Download IER Form PDF"
+                                  onClick={() => handleViewPdf(p.id)}
+                                >
                                   PDF
                                 </button>
-                              </div>
+                              </div> -->
                             </li>
                           ))}
                         </ul>
@@ -978,6 +993,8 @@ export default function Dashboard() {
       )}
 
       <div style={{ height: 30 }} />
+//       {viewingCase && <CaseDetailModal caseRow={viewingCase} masters={{ divisiCase: masters.divisiCase }} onClose={() => setViewingCase(null)} />} 
+
     </div>
   );
 }
