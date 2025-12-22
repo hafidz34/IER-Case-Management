@@ -624,9 +624,10 @@ export default function Dashboard() {
     divisiCase: [],
   });
   const [stats, setStats] = useState<CaseStats | null>(null);
-  const [filters, setFilters] = useState<{ lokasi: string; divisiCaseId: string; startDate: Date | null; endDate: Date | null }>({
+  const [filters, setFilters] = useState<{ lokasi: string; divisiCaseId: string; statusPengajuanId: string; startDate: Date | null; endDate: Date | null }>({
     lokasi: "",
     divisiCaseId: "",
+    statusPengajuanId: "",
     startDate: null,
     endDate: null,
   });
@@ -635,15 +636,16 @@ export default function Dashboard() {
     return rows.filter((r) => {
       const lokasiMatch = filters.lokasi ? (r.lokasi_kejadian || "").toLowerCase().includes(filters.lokasi.toLowerCase()) : true;
       const divisiMatch = filters.divisiCaseId ? String(r.divisi_case_id ?? "") === filters.divisiCaseId : true;
+      const statusPengajuanMatch = filters.statusPengajuanId ? String(r.status_pengajuan_id ?? "") === filters.statusPengajuanId : true;
       const kejadianDate = parseDateString(r.tanggal_kejadian);
       const startOk = filters.startDate ? !!kejadianDate && kejadianDate >= filters.startDate : true;
       const endOk = filters.endDate ? !!kejadianDate && kejadianDate <= filters.endDate : true;
-      return lokasiMatch && divisiMatch && startOk && endOk;
+      return lokasiMatch && divisiMatch && statusPengajuanMatch && startOk && endOk;
     });
   }, [rows, filters]);
 
   const rowsToRender = filteredRows;
-  const hasFilter = useMemo(() => Boolean(filters.lokasi || filters.divisiCaseId || filters.startDate || filters.endDate), [filters]);
+  const hasFilter = useMemo(() => Boolean(filters.lokasi || filters.divisiCaseId || filters.statusPengajuanId || filters.startDate || filters.endDate), [filters]);
 
   const statusBuckets = useMemo(() => {
     const buckets = { open: 0, ongoing: 0, closed: 0, total: rowsToRender.length };
@@ -828,6 +830,17 @@ export default function Dashboard() {
             </select>
           </div>
           <div>
+            <div className="field__label">Status Pengajuan</div>
+            <select className="input" value={filters.statusPengajuanId} onChange={(e) => setFilters({ ...filters, statusPengajuanId: e.target.value })}>
+              <option value="">-- pilih --</option>
+              {masters.statusPengajuan.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <div className="field__label">Tanggal Kejadian Dari</div>
             <DatePicker className="input" selected={filters.startDate} onChange={(date) => setFilters({ ...filters, startDate: date })} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" isClearable />
           </div>
@@ -836,7 +849,7 @@ export default function Dashboard() {
             <DatePicker className="input" selected={filters.endDate} onChange={(date) => setFilters({ ...filters, endDate: date })} dateFormat="dd-MM-yyyy" placeholderText="dd-mm-yyyy" isClearable />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn--outline" style={{ width: "100%" }} onClick={() => setFilters({ lokasi: "", divisiCaseId: "", startDate: null, endDate: null })}>
+            <button className="btn btn--outline" style={{ width: "100%" }} onClick={() => setFilters({ lokasi: "", divisiCaseId: "", statusPengajuanId: "", startDate: null, endDate: null })}>
               Reset Filter
             </button>
           </div>
