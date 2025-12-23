@@ -3,7 +3,7 @@ from flask_jwt_extended import create_access_token
 from ..models import User
 from ..extensions import db
 
-bp = Blueprint("auth", __name__, url_prefix="/auth")
+bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @bp.route("/login", methods=["POST"])
 def login():
