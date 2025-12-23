@@ -4,6 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { casesApi, CaseCreatePayload } from "../api/cases";
 import { masterApi, MasterItem } from "../api/master";
 import { client } from "../api/client";
+import { pushToast } from "../components/ToastHost";
 import { normalizeDateForPayload } from "../utils/date";
 
 function formatToIDR(value: string | number | null): string {
@@ -266,6 +267,7 @@ export default function InputCase() {
       openOcrModal(text, data);
     } catch (e: any) {
       setErr(e?.message || "Gagal memproses Berita Acara");
+      pushToast(e?.message || "Layanan AI sedang tidak tersedia. Coba lagi nanti.");
     } finally {
       setOcrLoading(false);
     }
@@ -305,6 +307,7 @@ export default function InputCase() {
       setShowAiModal(false);
     } catch (e: any) {
       setErr(e?.message || "Gagal mengambil saran AI");
+      pushToast(e?.message || "Layanan AI sedang tidak tersedia. Coba lagi nanti.");
     } finally {
       setAiLoading(false);
     }
@@ -459,6 +462,7 @@ export default function InputCase() {
     } catch (e: any) {
       console.error(e);
       setErr(e?.message || "Gagal meminta saran AI");
+      pushToast(e?.message || "Layanan AI sedang tidak tersedia. Coba lagi nanti.");
     } finally {
       setSuggestionLoading(null);
     }

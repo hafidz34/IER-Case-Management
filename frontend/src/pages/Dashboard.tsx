@@ -3,6 +3,7 @@ import { casesApi, CaseRow, CasePersonRow } from "../api/cases";
 import { displayDateOrDash } from "../utils/date";
 import { masterApi, MasterItem } from "../api/master";
 import { client } from "../api/client";
+import { pushToast } from "../components/ToastHost";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Modal from "../components/Modal";
@@ -154,6 +155,7 @@ function EditCaseModal({
       setAiPrompt("");
     } catch (e: any) {
       setErr(e?.message || "Gagal memuat prefill AI");
+      pushToast(e?.message || "Layanan AI sedang tidak tersedia. Coba lagi nanti.");
     } finally {
       setAiLoading(false);
     }
@@ -403,6 +405,7 @@ function EditPersonModal({ person, caseKerugian, onClose, onSave }: { person: Ca
       setAiPrompt("");
     } catch (e: any) {
       setErr(e?.message || "Gagal memuat prefill AI");
+      pushToast(e?.message || "Layanan AI sedang tidak tersedia. Coba lagi nanti.");
     } finally {
       setAiLoading(false);
     }
