@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: "D" },
@@ -7,6 +7,15 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Hapus token dari penyimpanan
+    localStorage.removeItem("token");
+    // Lempar user kembali ke halaman login
+    navigate("/login");
+  };
+
   return (
     <aside className="app-sidebar">
       <nav className="app-sidebar__nav">
@@ -23,6 +32,17 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <div style={{ marginTop: "auto" }}>
+        <button
+          onClick={handleLogout}
+          className="app-sidebar__link logout-btn"
+          title="Keluar Aplikasi"
+          type="button"
+        >
+          <span className="nav-ico">L</span>
+          <span className="nav-text">Logout</span>
+        </button>
+      </div>
     </aside>
   );
 }

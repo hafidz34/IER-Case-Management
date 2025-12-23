@@ -8,7 +8,15 @@ interface RequestOptions {
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown, options: RequestOptions = {}): Promise<T> {
   const url = `${BASE}${path}`;
-  const headers: HeadersInit = {};
+  const headers: Record<string, string> = {};;
+  // Cek apakah ada token tersimpan saat login
+  const token = localStorage.getItem("token");
+
+  // Jika ada, masukkan ke header dengan format "Bearer <token>"
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   let payload: BodyInit | undefined;
 
   if (body instanceof FormData) {

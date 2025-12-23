@@ -103,6 +103,9 @@ body {
   padding: 8px; /* kecil biar muat */
   transition: width 160ms ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between
 }
 
 .app-sidebar.is-open {
@@ -590,4 +593,32 @@ textarea.input {
     font-weight: 700;
     color: #334155;
   }
+}
+
+/* LOGOUT BUTTON STYLE             */
+/* Reset style default button agar mirip link sidebar */
+button.app-sidebar__link {
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  /* Margin top auto agar dia terdorong ke bawah jika container pakai flex */
+  margin-top: auto; 
+}
+
+/* Warna Merah Kalem (Soft Red) saat Hover */
+.logout-btn:hover {
+  background: #fee2e2 !important; /* Background merah muda lembut */
+  border-color: #fecaca !important;
+  color: #991b1b !important;      /* Teks merah agak gelap */
+  font-weight: 700;
+}
+
+/* Pastikan kotak icon juga berubah warna */
+.logout-btn:hover .nav-ico {
+  border-color: #fecaca !important;
+  color: #991b1b !important;
+  background: #fff;
 }

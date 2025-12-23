@@ -12,6 +12,7 @@ from flask import Blueprint, jsonify, request, render_template, make_response, c
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, subqueryload
+from flask_jwt_extended import jwt_required
 
 # Import library PDF
 from io import BytesIO
@@ -228,6 +229,7 @@ def _build_person_attributes(person_payload: Dict[str, Any], index: int) -> Dict
 # ---------- routes ----------
 
 @bp.get("")
+@jwt_required()
 def list_cases():
     try:
         cases = db.session.query(Case).options(joinedload(Case.persons)).order_by(Case.id.desc()).all()
@@ -246,11 +248,13 @@ def list_cases():
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
 @bp.route('/stats', methods=['GET'])
+@jwt_required()
 def case_stats():
     stats = get_case_stats()
     return jsonify(stats)
 
 @bp.get("/<int:case_id>")
+@jwt_required()
 def get_case(case_id):
     try:
         case = (
@@ -277,6 +281,7 @@ def get_case(case_id):
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
 @bp.post("")
+@jwt_required()
 def create_case():
     payload = request.get_json(silent=True)
     try:
@@ -323,6 +328,7 @@ def create_case():
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
 @bp.put("/<int:case_id>")
+@jwt_required()
 def update_case(case_id):
     payload = request.get_json(silent=True)
     if not payload:
@@ -356,6 +362,7 @@ def update_case(case_id):
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
 @bp.put("/persons/<int:person_id>")
+@jwt_required()
 def update_person(person_id):
     payload = request.get_json(silent=True)
     if not payload:
@@ -384,6 +391,7 @@ def update_person(person_id):
         return jsonify({"error": "Server error", "detail": str(e)}), 500
 
 @bp.delete("/<int:case_id>")
+@jwt_required()
 def delete_case(case_id):
     case = db.session.get(Case, case_id)
     if not case:
@@ -403,6 +411,7 @@ def delete_case(case_id):
 
 # Route Download IER PDF
 @bp.get("/persons/<int:person_id>/download-ier")
+@jwt_required()
 def download_ier_pdf(person_id):
     # 1. Query Data
     person = db.session.query(CasePerson).options(
