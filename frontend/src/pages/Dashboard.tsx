@@ -673,7 +673,7 @@ export default function Dashboard() {
     if (rowsToRender.length) {
       const counts: Record<string, number> = {};
       rowsToRender.forEach((r) => {
-        const key = r.status_pengajuan_name || r.status_pengajuan?.name || r.status_proses_name || r.status_proses?.name || "Terlapor";
+        const key = r.status_pengajuan_name || r.status_pengajuan?.name || r.status_proses_name || r.status_proses?.name || "Open";
         counts[key] = (counts[key] || 0) + 1;
       });
       return counts;

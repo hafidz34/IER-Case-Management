@@ -109,9 +109,6 @@ export const casesApi = {
     const res = await client.get<{ value: CaseRow[] }>("/cases");
     return res.value;
   },
-
-  // Nama fungsi dikembalikan jadi 'create' (bukan createCase)
-  // agar cocok dengan InputCase.tsx
   create: async (payload: CaseCreatePayload) => {
     const res = await client.post<CaseRow>("/cases", payload);
     return res;

@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:5000/api";
+const BASE = import.meta.env.VITE_API_BASE_URL?.toString().trim() || "http://localhost:8129/api";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 

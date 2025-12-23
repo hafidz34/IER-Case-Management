@@ -9,7 +9,11 @@ services:
       POSTGRES_PASSWORD: password123
       POSTGRES_DB: ier_case_management
     ports:
+<<<<<<< HEAD
       - "5435:5432"
+=======
+      - "8128:5432"
+>>>>>>> 3a43529750c54106aa4989b716f6e5282946b78c
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,7 +21,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "5000:5000"
+      - "8129:5000"
     environment:
       # Penting: Di dalam docker, host database bukan 'localhost', tapi nama service-nya ('db')
       DATABASE_URL: postgresql+psycopg2://ier_user:password123@db:5432/ier_case_management
@@ -29,10 +33,10 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "8130:5173"
     environment:
       # Karena browser yang akses, tetap pakai localhost
-      VITE_API_BASE_URL: http://localhost:5000/api
+      VITE_API_BASE_URL: http://localhost:8129/api
     depends_on:
       - backend
 
