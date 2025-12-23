@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # 1. Service Database (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ier_user
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: ier_case_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Service Backend (Flask)
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      # Penting: Di dalam docker, host database bukan 'localhost', tapi nama service-nya ('db')
+      DATABASE_URL: postgresql+psycopg2://ier_user:password123@db:5432/ier_case_management
+      FLASK_ENV: development
+    depends_on:
+      - db
+
+  # 3. Service Frontend (React/Vite)
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # Karena browser yang akses, tetap pakai localhost
+      VITE_API_BASE_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
