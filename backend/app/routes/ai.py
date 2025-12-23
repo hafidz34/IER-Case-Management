@@ -483,12 +483,14 @@ def call_llm_suggestion(data: dict) -> dict:
 
     FORMAT JSON WAJIB:
     {{
-    "saran_keputusan": "Sebutkan jenis sanksi (misal: SP1/SP2/SP3/PHK/Pembinaan) dan alasannya secara singkat formal.",
+    "saran_keputusan": "Sebutkan jenis sanksi (misal: SP1/SP2/SP3/PHK/Pembinaan) dalam 1 kalimat formal.",
+    "alasan": ["Poin alasan 1", "Poin alasan 2", "Poin alasan 3"],  // minimal 2 alasan, singkat dan terhubung ke fakta
     "saran_pencegahan": "Saran perbaikan prosedur atau sistem agar tidak terulang."
     }}
 
     ATURAN:
     - Gunakan bahasa Indonesia yang formal.
+    - Alasan harus berupa bullet list (array of strings), merujuk ke jenis pelanggaran/kronologi/kerugian.
     - Output HARUS JSON valid.
     - Jangan sertakan markdown atau komentar lain.
     """
@@ -528,7 +530,8 @@ def suggest_decision():
     
     suggestion = {
         "saran_keputusan": llm_result.get("saran_keputusan"),
-        "saran_pencegahan": llm_result.get("saran_pencegahan")
+        "saran_pencegahan": llm_result.get("saran_pencegahan"),
+        "alasan": llm_result.get("alasan") or []
     }
 
     return jsonify({"input": body, "data": suggestion})

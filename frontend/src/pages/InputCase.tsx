@@ -87,6 +87,7 @@ export default function InputCase() {
   const [showOcrModal, setShowOcrModal] = useState(false);
   const [suggestionObj, setSuggestionObj] = useState<AiCaseSuggestion>({});
   const [suggestionParseErr, setSuggestionParseErr] = useState<string | null>(null);
+  const [aiDecisionPreview, setAiDecisionPreview] = useState<Record<number, { keputusan?: string; pencegahan?: string; alasan?: string[] }>>({});
 
   const msgRef = useRef<HTMLDivElement | null>(null);
   const errRef = useRef<HTMLDivElement | null>(null);
@@ -440,6 +441,10 @@ export default function InputCase() {
         newPersons[index].keputusan_ier = data.saran_keputusan;
       }
       setPersons(newPersons);
+      setAiDecisionPreview((prev) => ({
+        ...prev,
+        [index]: { keputusan: data.saran_keputusan, pencegahan: data.saran_pencegahan, alasan: Array.isArray(data.alasan) ? data.alasan : [] },
+      }));
 
       // Update Cara Mencegah jika ada dan form masih kosong
       if (data.saran_pencegahan && !form.cara_mencegah) {
@@ -759,21 +764,39 @@ export default function InputCase() {
                 </div>
 
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <div className="field__label">Keputusan IER</div>
-                  <button
-                    type="button"
-                    className="btn btn--primary"
-                    style={{ 
-                      fontSize: '0.75rem', 
-                      padding: '4px 10px', 
-                      minWidth: 'fit-content' 
-                    }}
-                    onClick={() => handleAskAiSuggestion(index)}
-                    disabled={suggestionLoading === index}
-                  >
-                    {suggestionLoading === index ? "Memikirkan..." : "Minta Saran AI"}
-                  </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div className="field__label" style={{ margin: 0 }}>Keputusan IER</div>
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      style={{ fontSize: "0.8rem", padding: "6px 12px", borderRadius: 9999 }}
+                      onClick={() => handleAskAiSuggestion(index)}
+                      disabled={suggestionLoading === index}
+                    >
+                      {suggestionLoading === index ? "Memproses..." : "Minta Saran AI"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "0.9rem", color: "#6b7280", marginBottom: 6 }}>Gunakan tombol di kanan untuk memuat draft keputusan otomatis, lalu sesuaikan manual jika perlu.</div>
                   <textarea className="input" rows={2} value={person.keputusan_ier} onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)} />
+                  {aiDecisionPreview[index]?.keputusan && (
+                    <div className="panel" style={{ marginTop: 8, padding: 10, background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Detail Alasan AI</div>
+                      <div style={{ marginBottom: 6 }}><strong>Keputusan:</strong> {aiDecisionPreview[index]?.keputusan}</div>
+                      {aiDecisionPreview[index]?.alasan && aiDecisionPreview[index]!.alasan!.length > 0 && (
+                        <div style={{ marginBottom: 6 }}>
+                          <strong>Alasan:</strong>
+                          <ul style={{ margin: "4px 0 0 18px" }}>
+                            {aiDecisionPreview[index]!.alasan!.map((a, i) => (
+                              <li key={i} style={{ marginBottom: 2 }}>{a}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {aiDecisionPreview[index]?.pencegahan && (
+                        <div><strong>Pencegahan:</strong> {aiDecisionPreview[index]?.pencegahan}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan Final</div>
@@ -916,6 +939,10 @@ export default function InputCase() {
                       <div className="v">{formatToIDR(p.nominal_beban_karyawan) || "-"}</div>
                       <div className="k">Persentase Beban</div>
                       <div className="v">{p.persentase_beban_karyawan || "-"}</div>
+                      <div className="k">Keputusan IER</div>
+                      <div className="v">{p.keputusan_ier || "-"}</div>
+                      <div className="k">Keputusan Final</div>
+                      <div className="v">{p.keputusan_final || "-"}</div>
                     </div>
                   </div>
                 ))}
