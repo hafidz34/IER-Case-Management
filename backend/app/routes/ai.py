@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
-from typing import Any
 from datetime import datetime
+from io import BytesIO
+from typing import Any
 
 import requests
 from flask import Blueprint, jsonify, request
@@ -48,9 +50,14 @@ def call_llm(prompt: str) -> dict:
     "kronologi": string | null,
     "status_proses_id": number | null,
     "status_pengajuan_id": number | null,
-    "notes": string | null,
-    "cara_mencegah": string | null,
-    "hrbp": string | null
+    "persons": [
+      {{
+        "nama": string | null,
+        "divisi": string | null,
+        "departemen": string | null,
+        "jenis_karyawan_terlapor_id": number | null
+      }}
+    ]
     }}
 
     KONSTRAINT ID:
@@ -72,18 +79,18 @@ def call_llm(prompt: str) -> dict:
     - Jangan menyalin kalimat mentah dari teks
     - Jangan menambahkan asumsi baru
 
-    ATURAN STATUS/NOTES:
+    ATURAN STATUS:
     - Jika ada indikasi status proses/pengajuan, cocokkan ke master status di atas.
-    - Isi "notes" dengan ringkasan relevan (maks 2 kalimat) jika ada konteks tambahan.
-    - Isi "cara_mencegah" jika ada saran perbaikan/pencegahan.
-    - Isi "hrbp" jika disebutkan pihak HRBP yang menangani.
 
     ATURAN JUDUL IER:
     - judul_ier HARUS berupa ringkasan singkat dari isi kronologi
     - Panjang maksimal 10–12 kata
     - Tidak mengandung detail teknis berlebihan (tanggal lengkap, nominal rinci)
     - Mewakili inti peristiwa utama
-    - Jika kronologi null, maka judul_ier HARUS null
+
+    ATURAN TERLAPOR:
+    - Isi array "persons" jika ada nama terlapor, divisi, departemen, atau jenis karyawan terlapor.
+    - Jika divisi/jenis karyawan terlapor cocok dengan master, isi ID-nya; jika tidak pasti, set null.
 
     TEKS KASUS:
     {prompt}
@@ -112,6 +119,23 @@ def call_llm(prompt: str) -> dict:
     content = response.json()["choices"][0]["message"]["content"]
     parsed = extract_json(content)
     return parsed if isinstance(parsed, dict) else {}
+
+
+def build_case_suggestion(llm_result: dict) -> dict:
+    return {
+        "divisi_case_id": llm_result.get("divisi_case_id"),
+        "jenis_case_id": llm_result.get("jenis_case_id"),
+        "tanggal_lapor": llm_result.get("tanggal_lapor"),
+        "tanggal_kejadian": llm_result.get("tanggal_kejadian"),
+        "lokasi_kejadian": llm_result.get("lokasi_kejadian"),
+        "judul_ier": llm_result.get("judul_ier"),
+        "tanggal_proses_ier": llm_result.get("tanggal_proses_ier"),
+        "kerugian": llm_result.get("kerugian"),
+        "kronologi": llm_result.get("kronologi"),
+        "status_proses_id": llm_result.get("status_proses_id"),
+        "status_pengajuan_id": llm_result.get("status_pengajuan_id"),
+        "persons": llm_result.get("persons") or [],
+    }
 
 
 def preprocessing_ai_date(raw: Any) -> str | None:
@@ -223,7 +247,6 @@ def call_llm_person(prompt: str) -> dict:
 
     content = response.json()["choices"][0]["message"]["content"]
     parsed = extract_json(content)
-    print(parsed)
     return parsed if isinstance(parsed, dict) else {}
 
 
@@ -276,6 +299,74 @@ def get_jenis_karyawan_terlapor() -> dict:
         "jenis_karyawan_terlapor": [{"id": r.id, "name": r.name} for r in jenis_rows],
     }
 
+def _ocr_with_llm_multi(image_payloads: list[tuple[str, str]]) -> str:
+    if not image_payloads:
+        return ""
+
+    prompt = (
+        "Perform Optical Character Recognition (OCR) on ALL images provided. "
+        "Extract all visible text, ensuring accuracy and maintaining the original reading order (left-to-right, top-to-bottom) per image. "
+        "Gabungkan hasil semua gambar secara berurutan. "
+        "Ignore any non-textual elements or graphics. "
+        "Provide ONLY the extracted text, without any introductory phrases, explanations, or additional commentary."
+    )
+
+    content_blocks = [{"type": "text", "text": prompt}]
+    for base64_image, mime in image_payloads:
+        content_blocks.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:{mime};base64,{base64_image}"}
+        })
+
+    payload = {
+        "messages": [{
+            "role": "user",
+            "content": content_blocks
+        }],
+        "mode": "instruct",
+        "temperature": 0,
+    }
+
+    responses = requests.post(LLM_URL, json=payload)
+
+    if responses.status_code == 200:
+        llm_response = responses.json()
+        content_str = llm_response['choices'][0]['message']['content']
+        return content_str
+    else:
+        logging.info(f"Kobold LLM request failed with status code: {responses.status_code}, response: {responses.text}")
+        return ""
+
+
+def llm_extract_text(file_list) -> str:
+    base64_images: list[tuple[str, str]] = []
+    for file_storage in file_list:
+        raw_bytes = file_storage.read()
+        filename = (file_storage.filename or "").lower()
+        mimetype = (file_storage.mimetype or "").lower()
+        is_pdf = filename.endswith(".pdf") or "pdf" in mimetype
+
+        if is_pdf:
+            try:
+                from pdf2image import convert_from_bytes
+            except Exception as exc: 
+                logging.warning("pdf2image not available, cannot convert PDF to image: %s", exc)
+                continue
+
+            try:
+                images = convert_from_bytes(raw_bytes)
+                for img in images:
+                    buffer = BytesIO()
+                    img.save(buffer, format="JPEG")
+                    base64_images.append((base64.b64encode(buffer.getvalue()).decode("utf-8"), "image/jpeg"))
+            except Exception as exc:  
+                logging.warning("Failed to convert PDF to images: %s", exc)
+                continue
+        else:
+            mime = mimetype if mimetype else "image/jpeg"
+            base64_images.append((base64.b64encode(raw_bytes).decode("utf-8"), mime))
+
+    return _ocr_with_llm_multi(base64_images)
 
 @bp.post("/prefill-case")
 def prefill_case():
@@ -283,27 +374,29 @@ def prefill_case():
     prompt = body.get("prompt", "")
 
     llm_result = call_llm(prompt)
-    suggestion = {
-        "divisi_case_id": llm_result.get("divisi_case_id"),
-        "jenis_case_id": llm_result.get("jenis_case_id"),
-        "tanggal_lapor": llm_result.get("tanggal_lapor"),
-        "tanggal_kejadian": llm_result.get("tanggal_kejadian"),
-        "lokasi_kejadian": llm_result.get("lokasi_kejadian"),
-        "judul_ier": llm_result.get("judul_ier"),
-        "tanggal_proses_ier": llm_result.get("tanggal_proses_ier"),
-        "kerugian": llm_result.get("kerugian"),
-        "kronologi": llm_result.get("kronologi"),
-        "kerugian_by_case": None,
-        "approval_gm_hcca": None,
-        "approval_gm_fad": None,
-        "status_proses_id": llm_result.get("status_proses_id"),
-        "status_pengajuan_id": llm_result.get("status_pengajuan_id"),
-        "notes": llm_result.get("notes"),
-        "cara_mencegah": llm_result.get("cara_mencegah"),
-        "hrbp": llm_result.get("hrbp"),
-    }
+    suggestion = build_case_suggestion(llm_result)
 
     return jsonify({"prompt": prompt, "data": suggestion})
+
+
+@bp.post("/upload-berita-acara")
+def upload_berita_acara():
+    files = request.files.getlist("file")
+    if not files:
+        return jsonify({"error": "File berita acara wajib diunggah."}), 400
+
+    for f in files:
+        filename = (f.filename or "").lower()
+        if not (filename.endswith(".pdf") or filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png")):
+            return jsonify({"error": "Format file tidak didukung. Unggah PDF atau gambar (jpg/png)."}), 400
+
+    text = llm_extract_text(files)
+    if text == "":
+        return jsonify({"error": "Tidak ada teks terbaca dari berkas yang diunggah. Pastikan file jelas dibaca (PDF akan diubah ke gambar sebelum OCR)."}), 400
+
+    llm_result = call_llm(text)
+    suggestion = build_case_suggestion(llm_result)
+    return jsonify({"text": text, "data": suggestion})
 
 
 @bp.post("/prefill-person")
@@ -343,12 +436,14 @@ def call_llm_suggestion(data: dict) -> dict:
 
     FORMAT JSON WAJIB:
     {{
-    "saran_keputusan": "Sebutkan jenis sanksi (misal: SP1/SP2/SP3/PHK/Pembinaan) dan alasannya secara singkat formal.",
+    "saran_keputusan": "Sebutkan jenis sanksi (misal: SP1/SP2/SP3/PHK/Pembinaan) dalam 1 kalimat formal.",
+    "alasan": ["Poin alasan 1", "Poin alasan 2", "Poin alasan 3"],  // minimal 2 alasan, singkat dan terhubung ke fakta
     "saran_pencegahan": "Saran perbaikan prosedur atau sistem agar tidak terulang."
     }}
 
     ATURAN:
     - Gunakan bahasa Indonesia yang formal.
+    - Alasan harus berupa bullet list (array of strings), merujuk ke jenis pelanggaran/kronologi/kerugian.
     - Output HARUS JSON valid.
     - Jangan sertakan markdown atau komentar lain.
     """
@@ -388,7 +483,8 @@ def suggest_decision():
     
     suggestion = {
         "saran_keputusan": llm_result.get("saran_keputusan"),
-        "saran_pencegahan": llm_result.get("saran_pencegahan")
+        "saran_pencegahan": llm_result.get("saran_pencegahan"),
+        "alasan": llm_result.get("alasan") or []
     }
 
     return jsonify({"input": body, "data": suggestion})

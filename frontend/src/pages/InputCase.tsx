@@ -53,6 +53,15 @@ type AiCaseSuggestion = {
   tanggal_proses_ier?: string | null;
   kerugian?: number | null;
   kronologi?: string | null;
+  notes?: string | null;
+  cara_mencegah?: string | null;
+  hrbp?: string | null;
+  persons?: Array<{
+    nama?: string | null;
+    divisi?: string | null;
+    departemen?: string | null;
+    jenis_karyawan_terlapor_id?: number | null;
+  }>;
   // fields yang selalu null dari LLM diabaikan di sini
 };
 
@@ -72,9 +81,17 @@ export default function InputCase() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestionLoading, setSuggestionLoading] = useState<number | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrPreview, setOcrPreview] = useState("");
+  const [pendingAiData, setPendingAiData] = useState<AiCaseSuggestion | null>(null);
+  const [showOcrModal, setShowOcrModal] = useState(false);
+  const [suggestionObj, setSuggestionObj] = useState<AiCaseSuggestion>({});
+  const [suggestionParseErr, setSuggestionParseErr] = useState<string | null>(null);
+  const [aiDecisionPreview, setAiDecisionPreview] = useState<Record<number, { keputusan?: string; pencegahan?: string; alasan?: string[] }>>({});
 
   const msgRef = useRef<HTMLDivElement | null>(null);
   const errRef = useRef<HTMLDivElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const [masters, setMasters] = useState<Masters>({
     divisiCase: [],
@@ -204,9 +221,73 @@ export default function InputCase() {
       tanggal_proses_ier: data.tanggal_proses_ier !== undefined ? parseDateOrNull(data.tanggal_proses_ier) ?? prev.tanggal_proses_ier : prev.tanggal_proses_ier,
       kerugian: data.kerugian !== undefined && data.kerugian !== null ? data.kerugian.toString() : prev.kerugian,
       kronologi: data.kronologi !== undefined && data.kronologi !== null ? data.kronologi : prev.kronologi,
-      // bidang yang selalu null (kerugian_by_case, approvals, status, notes, cara_mencegah, hrbp) dibiarkan seperti sebelumnya
+      notes: data.notes !== undefined && data.notes !== null ? data.notes : prev.notes,
+      cara_mencegah: data.cara_mencegah !== undefined && data.cara_mencegah !== null ? data.cara_mencegah : prev.cara_mencegah,
+      hrbp: data.hrbp !== undefined && data.hrbp !== null ? data.hrbp : prev.hrbp,
+      // bidang yang selalu null (kerugian_by_case, approvals) dibiarkan seperti sebelumnya
     }));
+    if (Array.isArray(data.persons) && data.persons.length > 0) {
+      setPersons(
+        data.persons.map((p) => ({
+          nama: p.nama ?? "",
+          lokasi: "",
+          divisi: p.divisi ?? "",
+          departemen: p.departemen ?? "",
+          jenis_karyawan_terlap_id: p.jenis_karyawan_terlapor_id ? String(p.jenis_karyawan_terlapor_id) : "",
+          keputusan_ier: "",
+          keputusan_final: "",
+          persentase_beban_karyawan: "",
+          nominal_beban_karyawan: "",
+        }))
+      );
+    }
     setMsg("Form terisi otomatis oleh AI. Silakan periksa kembali sebelum menyimpan.");
+  };
+
+  const openOcrModal = (text: string, data: AiCaseSuggestion) => {
+    setOcrPreview(text || "");
+    setPendingAiData(data);
+    setSuggestionObj(data || {});
+    setSuggestionParseErr(null);
+    setShowOcrModal(true);
+  };
+
+  const handleBeritaAcaraUpload = async (files: File[]) => {
+    try {
+      setErr(null);
+      setMsg(null);
+      setOcrLoading(true);
+      const formData = new FormData();
+      files.forEach((f) => formData.append("file", f));
+
+      const json = await client.post<any>("/ai/upload-berita-acara", formData);
+      const data: AiCaseSuggestion = (json?.data ?? json) || {};
+      const text = (json?.text as string) || "";
+      openOcrModal(text, data);
+    } catch (e: any) {
+      setErr(e?.message || "Gagal memproses Berita Acara");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const handleUploadInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []) as File[];
+    if (files.length > 0) {
+      handleBeritaAcaraUpload(files);
+    }
+    e.target.value = "";
+  };
+
+  const confirmOcrToForm = () => {
+    if (!suggestionObj || Object.keys(suggestionObj).length === 0) {
+      setSuggestionParseErr("Suggestion kosong. Coba ulangi upload.");
+      return;
+    }
+    setSuggestionParseErr(null);
+    applyAiDataToForm(suggestionObj);
+    setShowOcrModal(false);
+    setMsg("Form terisi otomatis dari Berita Acara. Silakan periksa kembali sebelum menyimpan.");
   };
 
   async function handleAiPrefill() {
@@ -360,6 +441,10 @@ export default function InputCase() {
         newPersons[index].keputusan_ier = data.saran_keputusan;
       }
       setPersons(newPersons);
+      setAiDecisionPreview((prev) => ({
+        ...prev,
+        [index]: { keputusan: data.saran_keputusan, pencegahan: data.saran_pencegahan, alasan: Array.isArray(data.alasan) ? data.alasan : [] },
+      }));
 
       // Update Cara Mencegah jika ada dan form masih kosong
       if (data.saran_pencegahan && !form.cara_mencegah) {
@@ -518,8 +603,19 @@ export default function InputCase() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Input Case</h1>
+      <div
+        className="page-header"
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", gap: 12, flexWrap: "wrap" }}
+      >
+        <h1 className="page-title" style={{ margin: 0 }}>
+          Input Case
+        </h1>
+        <input ref={uploadInputRef} type="file" accept=".pdf,application/pdf,image/*" multiple style={{ display: "none" }} onChange={handleUploadInputChange} />
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn btn--primary" type="button" onClick={() => uploadInputRef.current?.click()} disabled={ocrLoading}>
+            {ocrLoading ? "Memproses..." : "OCR PDF/Gambar (multi)"}
+          </button>
+        </div>
       </div>
 
       <div className="panel" style={{ marginTop: 12 }}>
@@ -668,21 +764,39 @@ export default function InputCase() {
                 </div>
 
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <div className="field__label">Keputusan IER</div>
-                  <button
-                    type="button"
-                    className="btn btn--primary"
-                    style={{ 
-                      fontSize: '0.75rem', 
-                      padding: '4px 10px', 
-                      minWidth: 'fit-content' 
-                    }}
-                    onClick={() => handleAskAiSuggestion(index)}
-                    disabled={suggestionLoading === index}
-                  >
-                    {suggestionLoading === index ? "Memikirkan..." : "Minta Saran AI"}
-                  </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div className="field__label" style={{ margin: 0 }}>Keputusan IER</div>
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      style={{ fontSize: "0.8rem", padding: "6px 12px", borderRadius: 9999 }}
+                      onClick={() => handleAskAiSuggestion(index)}
+                      disabled={suggestionLoading === index}
+                    >
+                      {suggestionLoading === index ? "Memproses..." : "Minta Saran AI"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "0.9rem", color: "#6b7280", marginBottom: 6 }}>Gunakan tombol di kanan untuk memuat draft keputusan otomatis, lalu sesuaikan manual jika perlu.</div>
                   <textarea className="input" rows={2} value={person.keputusan_ier} onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)} />
+                  {aiDecisionPreview[index]?.keputusan && (
+                    <div className="panel" style={{ marginTop: 8, padding: 10, background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Detail Alasan AI</div>
+                      <div style={{ marginBottom: 6 }}><strong>Keputusan:</strong> {aiDecisionPreview[index]?.keputusan}</div>
+                      {aiDecisionPreview[index]?.alasan && aiDecisionPreview[index]!.alasan!.length > 0 && (
+                        <div style={{ marginBottom: 6 }}>
+                          <strong>Alasan:</strong>
+                          <ul style={{ margin: "4px 0 0 18px" }}>
+                            {aiDecisionPreview[index]!.alasan!.map((a, i) => (
+                              <li key={i} style={{ marginBottom: 2 }}>{a}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {aiDecisionPreview[index]?.pencegahan && (
+                        <div><strong>Pencegahan:</strong> {aiDecisionPreview[index]?.pencegahan}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan Final</div>
@@ -825,6 +939,10 @@ export default function InputCase() {
                       <div className="v">{formatToIDR(p.nominal_beban_karyawan) || "-"}</div>
                       <div className="k">Persentase Beban</div>
                       <div className="v">{p.persentase_beban_karyawan || "-"}</div>
+                      <div className="k">Keputusan IER</div>
+                      <div className="v">{p.keputusan_ier || "-"}</div>
+                      <div className="k">Keputusan Final</div>
+                      <div className="v">{p.keputusan_final || "-"}</div>
                     </div>
                   </div>
                 ))}
@@ -837,6 +955,153 @@ export default function InputCase() {
               </button>
               <button className="btn btn--primary" onClick={handleFinalSubmit} disabled={loading}>
                 {loading ? "Menyimpan..." : "Konfirmasi & Simpan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOcrModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ocr-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowOcrModal(false);
+          }}
+        >
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(900px, 95vw)" }}>
+            <div className="modal__header">
+              <div>
+                <h2 id="ocr-title" className="modal__title">
+                  Hasil OCR Berita Acara
+                </h2>
+                <p className="modal__subtitle">Tinjau dan koreksi teks jika perlu sebelum mengisi form.</p>
+              </div>
+              <button className="icon-btn" onClick={() => setShowOcrModal(false)} aria-label="Tutup">
+                ✕
+              </button>
+            </div>
+            <div className="modal__body">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+                <div className="field">
+                  <div className="field__label">Teks OCR</div>
+                  <textarea
+                    className="input"
+                    rows={14}
+                    value={ocrPreview}
+                    onChange={(e) => setOcrPreview(e.target.value)}
+                    style={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}
+                  />
+                </div>
+                <div className="field">
+                  <div className="field__label">Suggestion (kolom)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: "16px" }}>
+                    <select
+                      className="input"
+                      value={suggestionObj.divisi_case_id ?? ""}
+                      onChange={(e) => setSuggestionObj((p) => ({ ...p, divisi_case_id: toNumOrNull(e.target.value) }))}
+                    >
+                      <option value="">-- pilih Divisi Case --</option>
+                      {masters.divisiCase.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input"
+                      value={suggestionObj.jenis_case_id ?? ""}
+                      onChange={(e) => setSuggestionObj((p) => ({ ...p, jenis_case_id: toNumOrNull(e.target.value) }))}
+                    >
+                      <option value="">-- pilih Jenis Case --</option>
+                      {masters.jenisCase.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input className="input" placeholder="Tanggal Lapor (YYYY-MM-DD)" value={suggestionObj.tanggal_lapor ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, tanggal_lapor: e.target.value }))} />
+                    <input className="input" placeholder="Tanggal Kejadian (YYYY-MM-DD)" value={suggestionObj.tanggal_kejadian ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, tanggal_kejadian: e.target.value }))} />
+                    <input className="input" placeholder="Lokasi Kejadian" value={suggestionObj.lokasi_kejadian ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, lokasi_kejadian: e.target.value }))} />
+                    <input className="input" placeholder="Judul IER" value={suggestionObj.judul_ier ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, judul_ier: e.target.value }))} />
+                    <input className="input" placeholder="Tanggal Proses IER (YYYY-MM-DD)" value={suggestionObj.tanggal_proses_ier ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, tanggal_proses_ier: e.target.value }))} />
+                    <input className="input" placeholder="Kerugian" value={suggestionObj.kerugian ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, kerugian: toNumOrNull(e.target.value) }))} />
+                    <textarea className="input" rows={3} placeholder="Kronologi" value={suggestionObj.kronologi ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, kronologi: e.target.value }))} />
+                    <textarea className="input" rows={2} placeholder="Notes" value={suggestionObj.notes ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, notes: e.target.value }))} />
+                    <textarea className="input" rows={2} placeholder="Cara Mencegah" value={suggestionObj.cara_mencegah ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, cara_mencegah: e.target.value }))} />
+                    <input className="input" placeholder="HRBP" value={suggestionObj.hrbp ?? ""} onChange={(e) => setSuggestionObj((p) => ({ ...p, hrbp: e.target.value }))} />
+                    <div style={{ marginTop: 4, fontWeight: 600 }}>Terlapor</div>
+                    {(suggestionObj.persons ?? []).map((person, idx) => (
+                      <div key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, display: "grid", gap: 6 }}>
+                        <input className="input" placeholder="Nama" value={person.nama ?? ""} onChange={(e) => {
+                          const persons = Array.isArray(suggestionObj.persons) ? [...suggestionObj.persons] : [];
+                          persons[idx] = { ...persons[idx], nama: e.target.value };
+                          setSuggestionObj((p) => ({ ...p, persons }));
+                        }} />
+                        <select
+                          className="input"
+                          value={person.divisi ?? ""}
+                          onChange={(e) => {
+                            const persons = Array.isArray(suggestionObj.persons) ? [...suggestionObj.persons] : [];
+                            persons[idx] = { ...persons[idx], divisi: e.target.value };
+                            setSuggestionObj((p) => ({ ...p, persons }));
+                          }}
+                        >
+                          <option value="">-- pilih Divisi Terlapor --</option>
+                          {masters.divisiCase.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input className="input" placeholder="Departemen Terlapor" value={person.departemen ?? ""} onChange={(e) => {
+                          const persons = Array.isArray(suggestionObj.persons) ? [...suggestionObj.persons] : [];
+                          persons[idx] = { ...persons[idx], departemen: e.target.value };
+                          setSuggestionObj((p) => ({ ...p, persons }));
+                        }} />
+                        <select
+                          className="input"
+                          value={person.jenis_karyawan_terlapor_id ?? ""}
+                          onChange={(e) => {
+                            const persons = Array.isArray(suggestionObj.persons) ? [...suggestionObj.persons] : [];
+                            persons[idx] = { ...persons[idx], jenis_karyawan_terlapor_id: toNumOrNull(e.target.value) };
+                            setSuggestionObj((p) => ({ ...p, persons }));
+                          }}
+                        >
+                          <option value="">-- pilih Jenis Karyawan Terlapor --</option>
+                          {masters.jenisKaryawan.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        const persons = Array.isArray(suggestionObj.persons) ? [...suggestionObj.persons] : [];
+                        persons.push({});
+                        setSuggestionObj((p) => ({ ...p, persons }));
+                      }}
+                    >
+                      + Tambah Terlapor
+                    </button>
+                
+                    {suggestionParseErr && <div className="alert" style={{ marginTop: 8 }}>{suggestionParseErr}</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--ghost" onClick={() => setShowOcrModal(false)}>
+                Tutup
+              </button>
+              <button className="btn btn--primary" onClick={confirmOcrToForm} disabled={!pendingAiData}>
+                Input ke form
               </button>
             </div>
           </div>
