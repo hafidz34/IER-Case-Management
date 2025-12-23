@@ -18,7 +18,7 @@ from io import BytesIO
 from weasyprint import HTML
 
 from ..extensions import db
-from ..models import Case, CasePerson
+from ..models import Case, CasePerson, StatusPengajuan
 from ..services.case_code import next_case_code
 from app.services.dashboard import get_case_stats
 
@@ -281,6 +281,11 @@ def create_case():
     payload = request.get_json(silent=True)
     try:
         attributes = _build_case_attributes(payload)
+        if attributes.get("status_pengajuan_id") is None:
+            open_status = db.session.query(StatusPengajuan).filter_by(name="Open").first()
+            if not open_status:
+                raise ValidationError("Status Pengajuan 'Open' belum tersedia di master data.")
+            attributes["status_pengajuan_id"] = open_status.id
         people_payload = payload.get("persons", [])
         validated_persons_attrs = []
         for i, person_data in enumerate(people_payload):
