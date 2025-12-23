@@ -8,12 +8,20 @@ interface RequestOptions {
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown, options: RequestOptions = {}): Promise<T> {
   const url = `${BASE}${path}`;
-  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const headers: HeadersInit = {};
+  let payload: BodyInit | undefined;
+
+  if (body instanceof FormData) {
+    payload = body;
+  } else if (body !== undefined && body !== null) {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
 
   const config: RequestInit = {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: payload,
   };
 
   const res = await fetch(url, config);

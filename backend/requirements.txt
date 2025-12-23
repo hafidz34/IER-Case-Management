@@ -10,3 +10,4 @@ tzdata
 requests
 weasyprint
 pypdf==4.1.0
+pdf2image
