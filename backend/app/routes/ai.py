@@ -347,9 +347,6 @@ def _ocr_with_llm(base64_image: str, mime: str = "image/jpeg") -> str:
         return ""
 
 def _ocr_with_llm_multi(image_payloads: list[tuple[str, str]]) -> str:
-    """
-    Kirim banyak gambar (base64, mime) dalam satu request ke LLM OCR.
-    """
     if not image_payloads:
         return ""
 
@@ -389,9 +386,6 @@ def _ocr_with_llm_multi(image_payloads: list[tuple[str, str]]) -> str:
 
 
 def llm_extract_text(file_list) -> str:
-    """
-    Terima beberapa file (pdf/jpg/png). PDF diubah ke image per halaman, semua image dikirim ke OCR LLM dalam 1 request.
-    """
     base64_images: list[tuple[str, str]] = []
     for file_storage in file_list:
         raw_bytes = file_storage.read()
