@@ -9,11 +9,7 @@ services:
       POSTGRES_PASSWORD: password123
       POSTGRES_DB: ier_case_management
     ports:
-<<<<<<< HEAD
-      - "5435:5432"
-=======
       - "8128:5432"
->>>>>>> 3a43529750c54106aa4989b716f6e5282946b78c
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

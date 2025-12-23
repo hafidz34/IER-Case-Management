@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { client } from "../api/client";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -10,23 +11,11 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:5000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Simpan token di localStorage
-        localStorage.setItem("token", data.access_token);
-        navigate("/"); // Redirect ke dashboard
-      } else {
-        setError(data.msg || "Login gagal");
-      }
-    } catch (err) {
-      setError("Terjadi kesalahan koneksi");
+      const data = await client.post<{ access_token: string }>("/auth/login", { username, password });
+      localStorage.setItem("token", data.access_token);
+      navigate("/");
+    } catch (err: any) {
+      setError(err?.message || "Login gagal");
     }
   };
 
