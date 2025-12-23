@@ -319,6 +319,34 @@ textarea.input {
   color: #067647;
 }
 
+/* ====== TOAST ====== */
+.toast-container {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  min-width: 220px;
+  max-width: 340px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  padding: 12px 14px;
+  border-left: 4px solid var(--spil-red);
+  font-weight: 700;
+  color: #b42318;
+}
+
+.toast--success {
+  border-left-color: var(--spil-green);
+  color: var(--spil-green);
+}
+
 /* ====== TABLE ====== */
 .table {
   width: 100%;

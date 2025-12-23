@@ -374,6 +374,8 @@ def prefill_case():
     prompt = body.get("prompt", "")
 
     llm_result = call_llm(prompt)
+    if prompt and not llm_result:
+        return jsonify({"error": "Layanan AI sedang tidak tersedia. Coba lagi nanti."}), 503
     suggestion = build_case_suggestion(llm_result)
 
     return jsonify({"prompt": prompt, "data": suggestion})
@@ -395,6 +397,8 @@ def upload_berita_acara():
         return jsonify({"error": "Tidak ada teks terbaca dari berkas yang diunggah. Pastikan file jelas dibaca (PDF akan diubah ke gambar sebelum OCR)."}), 400
 
     llm_result = call_llm(text)
+    if text and not llm_result:
+        return jsonify({"error": "Layanan AI sedang tidak tersedia. Coba lagi nanti."}), 503
     suggestion = build_case_suggestion(llm_result)
     return jsonify({"text": text, "data": suggestion})
 
@@ -405,6 +409,8 @@ def prefill_person():
     prompt = body.get("prompt", "")
 
     llm_result = call_llm_person(prompt)
+    if prompt and not llm_result:
+        return jsonify({"error": "Layanan AI sedang tidak tersedia. Coba lagi nanti."}), 503
     suggestion = {
         "jenis_karyawan_terlapor_id": llm_result.get("jenis_karyawan_terlapor_id"),
         "nominal_beban_karyawan": llm_result.get("nominal_beban_karyawan"),
@@ -480,6 +486,8 @@ def suggest_decision():
     
     # Panggil fungsi AI baru
     llm_result = call_llm_suggestion(body)
+    if body and not llm_result:
+        return jsonify({"error": "Layanan AI sedang tidak tersedia. Coba lagi nanti."}), 503
     
     suggestion = {
         "saran_keputusan": llm_result.get("saran_keputusan"),
