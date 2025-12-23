@@ -1,5 +1,6 @@
 from datetime import datetime
 from .extensions import db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 class MasterBase(db.Model):
     __abstract__ = True
@@ -150,3 +151,16 @@ class CasePerson(db.Model):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     case = db.relationship("Case", back_populates="persons")
+
+class User(db.Model):
+    __tablename__ = "m_user"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
