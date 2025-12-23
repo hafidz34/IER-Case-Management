@@ -80,6 +80,7 @@ export default function InputCase() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState<number | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPreview, setOcrPreview] = useState("");
   const [pendingAiData, setPendingAiData] = useState<AiCaseSuggestion | null>(null);
@@ -399,6 +400,65 @@ export default function InputCase() {
     };
   }, [form, persentaseBeban, persons]);
 
+  // Minta saran AI untuk keputusan IER
+  async function handleAskAiSuggestion(index: number) {
+    // 1. Validasi Input Dasar
+    if (!form.kronologi || form.kronologi.trim().length < 10) {
+      setErr("Mohon isi Kronologi dengan lengkap terlebih dahulu.");
+      return;
+    }
+    if (!form.jenis_case_id) {
+      setErr("Mohon pilih Jenis Case terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setSuggestionLoading(index); 
+      setErr(null);
+
+      const jenisCaseName = masters.jenisCase.find((x) => x.id === Number(form.jenis_case_id))?.name || "-";
+
+      const payload = {
+        kronologi: form.kronologi,
+        kerugian: form.kerugian || "0",
+        jenis_case: jenisCaseName,
+      };
+
+      // Panggil API
+      const res = await client.post<any>("/ai/suggest-decision", payload);
+      
+      // Cukup ambil res.data, jangan res.data.data
+      const data = res.data || {}; 
+
+      console.log("AI Response:", data); // Debugging: Cek di console browser
+
+      // 4. Update Form
+      const newPersons = [...persons];
+      
+      // Pastikan ada isinya sebelum update
+      if (data.saran_keputusan) {
+        newPersons[index].keputusan_ier = data.saran_keputusan;
+      }
+      setPersons(newPersons);
+
+      // Update Cara Mencegah jika ada dan form masih kosong
+      if (data.saran_pencegahan && !form.cara_mencegah) {
+        setForm((prev) => ({ ...prev, cara_mencegah: data.saran_pencegahan }));
+        setMsg("Saran Keputusan & Pencegahan berhasil diterapkan!");
+      } else if (data.saran_keputusan) {
+        setMsg("Saran Keputusan berhasil diterapkan!");
+      } else {
+        setErr("AI tidak memberikan saran. Coba perjelas kronologi.");
+      }
+
+    } catch (e: any) {
+      console.error(e);
+      setErr(e?.message || "Gagal meminta saran AI");
+    } finally {
+      setSuggestionLoading(null);
+    }
+  }
+
   async function handleFinalSubmit() {
     setIsConfirming(false);
     try {
@@ -700,6 +760,19 @@ export default function InputCase() {
 
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <div className="field__label">Keputusan IER</div>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    style={{ 
+                      fontSize: '0.75rem', 
+                      padding: '4px 10px', 
+                      minWidth: 'fit-content' 
+                    }}
+                    onClick={() => handleAskAiSuggestion(index)}
+                    disabled={suggestionLoading === index}
+                  >
+                    {suggestionLoading === index ? "Memikirkan..." : "Minta Saran AI"}
+                  </button>
                   <textarea className="input" rows={2} value={person.keputusan_ier} onChange={(e) => handlePersonChange(index, "keputusan_ier", e.target.value)} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
