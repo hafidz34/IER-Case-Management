@@ -11,4 +11,11 @@ export default defineConfig({
       "react-dom": path.resolve("./node_modules/react-dom"),
     },
   },
+  server: {
+    watch: {
+      // Use polling to avoid EMFILE errors in Docker/volume mounts
+      usePolling: true,
+      interval: 1000,
+    },
+  },
 });
