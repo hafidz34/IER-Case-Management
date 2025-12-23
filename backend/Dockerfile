@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Salin file requirements terlebih dahulu untuk memanfaatkan cache layer Docker
