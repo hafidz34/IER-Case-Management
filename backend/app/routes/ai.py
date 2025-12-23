@@ -50,9 +50,6 @@ def call_llm(prompt: str) -> dict:
     "kronologi": string | null,
     "status_proses_id": number | null,
     "status_pengajuan_id": number | null,
-    "notes": string | null,
-    "cara_mencegah": string | null,
-    "hrbp": string | null,
     "persons": [
       {{
         "nama": string | null,
@@ -82,11 +79,8 @@ def call_llm(prompt: str) -> dict:
     - Jangan menyalin kalimat mentah dari teks
     - Jangan menambahkan asumsi baru
 
-    ATURAN STATUS/NOTES:
+    ATURAN STATUS:
     - Jika ada indikasi status proses/pengajuan, cocokkan ke master status di atas.
-    - Isi "notes" dengan ringkasan relevan (maks 2 kalimat) jika ada konteks tambahan.
-    - Isi "cara_mencegah" jika ada saran perbaikan/pencegahan.
-    - Isi "hrbp" jika disebutkan pihak HRBP yang menangani.
 
     ATURAN JUDUL IER:
     - judul_ier HARUS berupa ringkasan singkat dari isi kronologi
@@ -140,9 +134,6 @@ def build_case_suggestion(llm_result: dict) -> dict:
         "kronologi": llm_result.get("kronologi"),
         "status_proses_id": llm_result.get("status_proses_id"),
         "status_pengajuan_id": llm_result.get("status_pengajuan_id"),
-        "notes": llm_result.get("notes"),
-        "cara_mencegah": llm_result.get("cara_mencegah"),
-        "hrbp": llm_result.get("hrbp"),
         "persons": llm_result.get("persons") or [],
     }
 
@@ -307,44 +298,6 @@ def get_jenis_karyawan_terlapor() -> dict:
     return {
         "jenis_karyawan_terlapor": [{"id": r.id, "name": r.name} for r in jenis_rows],
     }
-
-
-def _ocr_with_llm(base64_image: str, mime: str = "image/jpeg") -> str:
-    prompt = (
-        "Perform Optical Character Recognition (OCR) on the image provided. "
-        "Extract all visible text, ensuring accuracy and maintaining the original reading order (left-to-right, top-to-bottom). "
-        "Ignore any non-textual elements or graphics. "
-        "Provide ONLY the extracted text, without any introductory phrases, explanations, or additional commentary."
-    )
-
-    url_llm = "http://pe.spil.co.id/kobold/v1/chat/completions"
-
-    payload = {
-        "messages": [{
-            "role": "user",
-            "content": [{
-                "type": "text",
-                "text": prompt
-            }, {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{mime};base64,{base64_image}"
-                }
-            }]
-        }],
-        "mode": "instruct",
-        "temperature": 0,
-    }
-
-    responses = requests.post(url_llm, json=payload)
-
-    if responses.status_code == 200:
-        llm_response = responses.json()
-        content_str = llm_response['choices'][0]['message']['content']
-        return content_str
-    else:
-        logging.info(f"Kobold LLM request failed with status code: {responses.status_code}, response: {responses.text}")
-        return ""
 
 def _ocr_with_llm_multi(image_payloads: list[tuple[str, str]]) -> str:
     if not image_payloads:
